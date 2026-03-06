@@ -1,15 +1,14 @@
-import React, { useState, useRef } from 'react';
+import React from 'react';
 import { useExpense } from '../context/ExpenseContext';
-import { PUBLICIDADE_CATEGORIES, STAND_CATEGORIES, INSTITUCIONAL_CATEGORIES, ExpenseCategory, ALL_PROJECTS, PROJECTS_BY_CITY, Project, City, Transaction } from '../types';
+import { PUBLICIDADE_CATEGORIES, STAND_CATEGORIES, INSTITUCIONAL_CATEGORIES, PROJECTS_BY_CITY, ALL_PROJECTS } from '../types';
 import { formatCurrency, MONTHS } from '../utils';
-import { PlusCircle, Edit2, Check, X, Upload } from 'lucide-react';
-import * as xlsx from 'xlsx';
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid, Legend, ComposedChart, Line } from 'recharts';
+import { TrendingUp, TrendingDown, DollarSign, Target, PlusCircle, Users, ShoppingCart, Percent, Activity } from 'lucide-react';
 
-export const DataEntry = () => {
-  const { selectedMonthId, currentMonthData, filteredTransactions, updateBudgetPublicidade, updateBudgetStand, updateBudgetInstitucional, setIsModalOpen, updateTransactionAmount, selectedProject, addTransactions } = useExpense();
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [editAmount, setEditAmount] = useState<string>('');
-  const fileInputRef = useRef<HTMLInputElement>(null);
+const COLORS = ['#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#14b8a6', '#f97316', '#6366f1', '#84cc16'];
+
+export const Dashboard = () => {
+  const { data, currentMonthData, setIsModalOpen, selectedCity, selectedProject, filteredTransactions, transactions } = useExpense();
 
   if (!currentMonthData) return <div>Carregando...</div>;
 
@@ -17,264 +16,134 @@ export const DataEntry = () => {
     setIsModalOpen(true);
   };
 
-  const handleEditStart = (id: string, currentAmount: number) => {
-    setEditingId(id);
-    setEditAmount(currentAmount.toString());
-  };
+  const totalPublicidade = PUBLICIDADE_CATEGORIES.reduce((acc, cat) => acc + filteredTransactions.filter(t => t.category === cat).reduce((sum, t) => sum + t.amount, 0), 0);
+  const totalStand = STAND_CATEGORIES.reduce((acc, cat) => acc + filteredTransactions.filter(t => t.category === cat).reduce((sum, t) => sum + t.amount, 0), 0);
+  const totalInstitucional = INSTITUCIONAL_CATEGORIES.reduce((acc, cat) => acc + filteredTransactions.filter(t => t.category === cat).reduce((sum, t) => sum + t.amount, 0), 0);
+  const totalGasto = totalPublicidade + totalStand + totalInstitucional;
 
-  const handleEditSave = (id: string) => {
-    const num = parseFloat(editAmount);
-    if (!isNaN(num) && num > 0) {
-      updateTransactionAmount(id, num);
-    }
-    setEditingId(null);
-  };
+  let budgetPub = 0;
+  let budgetStand = 0;
+  let budgetInst = 0;
+  let totalLeads = 0;
+  let totalVendas = 0;
+  let totalVGV = 0;
+  
+  const projectsToInclude = selectedProject !== 'ALL' 
+    ? [selectedProject] 
+    : selectedCity !== 'ALL' 
+      ? PROJECTS_BY_CITY[selectedCity] 
+      : ALL_PROJECTS;
 
-  const handleEditCancel = () => {
-    setEditingId(null);
-  };
-
-  const currentMonthTransactions = filteredTransactions.filter(t => t.date.startsWith(selectedMonthId)).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-
-  const handleBudgetPublicidadeChange = (value: string) => {
-    if (selectedProject === 'ALL') return;
-    const num = parseFloat(value);
-    updateBudgetPublicidade(selectedProject, isNaN(num) ? 0 : num);
-  };
-
-  const handleBudgetStandChange = (value: string) => {
-    if (selectedProject === 'ALL') return;
-    const num = parseFloat(value);
-    updateBudgetStand(selectedProject, isNaN(num) ? 0 : num);
-  };
-
-  const handleBudgetInstitucionalChange = (value: string) => {
-    if (selectedProject === 'ALL') return;
-    const num = parseFloat(value);
-    updateBudgetInstitucional(selectedProject, isNaN(num) ? 0 : num);
-  };
-
-  const normalizeString = (str: string) => str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
-
-  const matchProject = (sheetName: string): Project | null => {
-    const normalized = normalizeString(sheetName);
-    for (const p of ALL_PROJECTS) {
-      const pNorm = normalizeString(p);
-      if (normalized === pNorm || normalized.includes(pNorm) || pNorm.includes(normalized)) {
-        return p;
-      }
-    }
-    return null;
-  };
-
-  const getCityForProject = (project: Project): City => {
-    return PROJECTS_BY_CITY['Rio de Janeiro'].includes(project as any) ? 'Rio de Janeiro' : 'Campinas';
-  };
-
-  const parseHeaderDate = (header: string | number): { year: number, month: number } | null => {
-    if (!header) return null;
-    const str = String(header).trim().toLowerCase();
+  projectsToInclude.forEach(p => {
+    budgetPub += currentMonthData.budgets[p]?.publicidade || 0;
+    budgetStand += currentMonthData.budgets[p]?.stand || 0;
+    budgetInst += currentMonthData.budgets[p]?.institucional || 0;
     
-    // Try MM/YYYY or MM/YY
-    const mmYyyyMatch = str.match(/^(\d{1,2})[\/\-](\d{2,4})$/);
-    if (mmYyyyMatch) {
-      const month = parseInt(mmYyyyMatch[1], 10);
-      let year = parseInt(mmYyyyMatch[2], 10);
-      if (year < 100) year += 2000;
-      if (month >= 1 && month <= 12) return { year, month };
+    const comm = currentMonthData.commercial[p];
+    if (comm) {
+      totalLeads += comm.leads || 0;
+      totalVendas += comm.vendas || 0;
+      totalVGV += comm.vgv || 0;
     }
+  });
 
-    // Try Month/YY or Month/YYYY
-    const monthNames = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
-    for (let i = 0; i < monthNames.length; i++) {
-      if (str.startsWith(monthNames[i])) {
-        const yearMatch = str.match(/\d{2,4}$/);
-        if (yearMatch) {
-          let year = parseInt(yearMatch[0], 10);
-          if (year < 100) year += 2000;
-          return { year, month: i + 1 };
-        }
-      }
-    }
+  const totalPrevisto = budgetPub + budgetStand + budgetInst;
+  const cac = totalVendas > 0 ? totalGasto / totalVendas : 0;
+  const roi = totalGasto > 0 ? ((totalVGV - totalGasto) / totalGasto) * 100 : 0;
+  const taxaConversao = totalLeads > 0 ? (totalVendas / totalLeads) * 100 : 0;
+  const leadsPorVenda = totalVendas > 0 ? totalLeads / totalVendas : 0;
+
+  const saldoPub = budgetPub - totalPublicidade;
+  const percentualPub = budgetPub > 0 ? (totalPublicidade / budgetPub) * 100 : 0;
+
+  const saldoStand = budgetStand - totalStand;
+  const percentualStand = budgetStand > 0 ? (totalStand / budgetStand) * 100 : 0;
+
+  const pieData = [
+    { name: 'Publicidade', value: totalPublicidade },
+    { name: 'Stand', value: totalStand },
+    { name: 'Institucional', value: totalInstitucional }
+  ].filter(d => d.value > 0);
+
+  const barData = PUBLICIDADE_CATEGORIES.map(cat => ({
+    name: cat,
+    valor: filteredTransactions.filter(t => t.category === cat).reduce((sum, t) => sum + t.amount, 0)
+  })).filter(d => d.valor > 0).sort((a, b) => b.valor - a.valor);
+
+  const comboData = data.slice().reverse().map(m => {
+    let mLeads = 0;
+    let mInvestido = 0;
+    let mPrevisto = 0;
     
-    // Excel serial date
-    const num = Number(header);
-    if (!isNaN(num) && num > 40000 && num < 50000) {
-      const date = new Date(Math.round((num - 25569) * 86400 * 1000));
-      return { year: date.getUTCFullYear(), month: date.getUTCMonth() + 1 };
+    projectsToInclude.forEach(p => {
+      mLeads += m.commercial[p]?.leads || 0;
+      mPrevisto += (m.budgets[p]?.publicidade || 0) + (m.budgets[p]?.stand || 0) + (m.budgets[p]?.institucional || 0);
+    });
+
+    const mTransactions = transactions.filter(t => t.date.startsWith(m.id)).filter(t => {
+      if (selectedCity !== 'ALL' && t.city !== selectedCity) return false;
+      if (selectedProject !== 'ALL' && t.project !== selectedProject) return false;
+      return true;
+    });
+    mInvestido = mTransactions.reduce((sum, t) => sum + t.amount, 0);
+
+    return {
+      name: MONTHS[m.month - 1].substring(0, 3),
+      leads: mLeads,
+      investido: mInvestido,
+      previsto: mPrevisto
+    };
+  });
+
+  // Trend logic (comparing to previous month if exists)
+  const currentIndex = data.findIndex(m => m.id === currentMonthData.id);
+  const prevMonthData = data[currentIndex + 1]; // assuming sorted desc
+  let trend = 0;
+  if (prevMonthData) {
+    const prevTransactions = data[currentIndex + 1] ? 
+      data[currentIndex + 1].id // Wait, we need transactions from previous month to filter correctly.
+      // For simplicity, let's just use the raw expenses if we don't have filtered past transactions easily available.
+      // Actually, since we have all transactions in context, let's filter them.
+      : null;
+  }
+  
+  // Let's rewrite trend logic to use filtered transactions
+  if (prevMonthData) {
+    const prevMonthTransactions = transactions.filter(t => t.date.startsWith(prevMonthData.id)).filter(t => {
+      if (selectedCity !== 'ALL' && t.city !== selectedCity) return false;
+      if (selectedProject !== 'ALL' && t.project !== selectedProject) return false;
+      return true;
+    });
+    const prevTotal = prevMonthTransactions.reduce((sum, t) => sum + t.amount, 0);
+    if (prevTotal > 0) {
+      trend = ((totalGasto - prevTotal) / prevTotal) * 100;
     }
-
-    return null;
-  };
-
-  const matchCategory = (str: string): { category: ExpenseCategory, type: 'Publicidade' | 'Stand' | 'Institucional' } | null => {
-    if (!str) return null;
-    const normalized = normalizeString(str);
-    
-    for (const cat of PUBLICIDADE_CATEGORIES) {
-      if (normalized === normalizeString(cat) || normalized.includes(normalizeString(cat)) || normalizeString(cat).includes(normalized)) {
-        return { category: cat, type: 'Publicidade' };
-      }
-    }
-    for (const cat of STAND_CATEGORIES) {
-      if (normalized === normalizeString(cat) || normalized.includes(normalizeString(cat)) || normalizeString(cat).includes(normalized)) {
-        return { category: cat, type: 'Stand' };
-      }
-    }
-    for (const cat of INSTITUCIONAL_CATEGORIES) {
-      if (normalized === normalizeString(cat) || normalized.includes(normalizeString(cat)) || normalizeString(cat).includes(normalized)) {
-        return { category: cat, type: 'Institucional' };
-      }
-    }
-    return null;
-  };
-
-  const parseCurrency = (val: any): number => {
-    if (typeof val === 'number') return val;
-    if (!val || typeof val !== 'string') return 0;
-    
-    let cleanStr = val.replace(/R\$\s?/g, '').trim();
-    
-    if (cleanStr.includes(',') && cleanStr.includes('.')) {
-      const lastComma = cleanStr.lastIndexOf(',');
-      const lastDot = cleanStr.lastIndexOf('.');
-      if (lastComma > lastDot) {
-        cleanStr = cleanStr.replace(/\./g, '').replace(',', '.');
-      } else {
-        cleanStr = cleanStr.replace(/,/g, '');
-      }
-    } else if (cleanStr.includes(',')) {
-      cleanStr = cleanStr.replace(',', '.');
-    }
-    
-    const num = parseFloat(cleanStr);
-    return isNaN(num) ? 0 : num;
-  };
-
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    try {
-      const buffer = await file.arrayBuffer();
-      const workbook = xlsx.read(buffer, { type: 'array' });
-      
-      const newTransactions: Omit<Transaction, 'id'>[] = [];
-
-      for (const sheetName of workbook.SheetNames) {
-        const project = matchProject(sheetName);
-        if (!project) continue;
-
-        const sheet = workbook.Sheets[sheetName];
-        const rows = xlsx.utils.sheet_to_json(sheet, { header: 1 }) as any[][];
-        
-        let dateColumns: { colIndex: number, year: number, month: number }[] = [];
-        let headerRowIndex = -1;
-
-        // Find header row with dates
-        for (let i = 0; i < Math.min(rows.length, 20); i++) {
-          const row = rows[i];
-          if (!row) continue;
-          
-          const tempDateCols = [];
-          for (let j = 0; j < row.length; j++) {
-            const parsed = parseHeaderDate(row[j]);
-            if (parsed) {
-              tempDateCols.push({ colIndex: j, ...parsed });
-            }
-          }
-          
-          if (tempDateCols.length > 0) {
-            headerRowIndex = i;
-            dateColumns = tempDateCols;
-            break;
-          }
-        }
-
-        if (headerRowIndex === -1 || dateColumns.length === 0) continue;
-
-        // Parse rows below header
-        for (let i = headerRowIndex + 1; i < rows.length; i++) {
-          const row = rows[i];
-          if (!row || row.length === 0) continue;
-
-          // Find category in the first few columns
-          let categoryMatch = null;
-          let description = '';
-          for (let j = 0; j < Math.min(row.length, 5); j++) {
-            const cellValue = String(row[j] || '');
-            const match = matchCategory(cellValue);
-            if (match) {
-              categoryMatch = match;
-              // Use the cell value as description if it's longer than the category name, or the next cell
-              description = cellValue.length > match.category.length + 3 ? cellValue : String(row[j+1] || match.category);
-              break;
-            }
-          }
-
-          if (!categoryMatch) continue;
-
-          // Extract amounts for each date column
-          for (const dateCol of dateColumns) {
-            const amount = parseCurrency(row[dateCol.colIndex]);
-            if (amount > 0) {
-              newTransactions.push({
-                date: `${dateCol.year}-${dateCol.month.toString().padStart(2, '0')}-01`,
-                city: getCityForProject(project),
-                project,
-                type: categoryMatch.type,
-                category: categoryMatch.category,
-                amount,
-                description: description.substring(0, 100)
-              });
-            }
-          }
-        }
-      }
-
-      if (newTransactions.length > 0) {
-        addTransactions(newTransactions);
-        alert(`${newTransactions.length} lançamentos importados com sucesso de todas as abas!`);
-      } else {
-        alert('Nenhum lançamento válido encontrado no arquivo.');
-      }
-    } catch (error) {
-      console.error('Error parsing file:', error);
-      alert('Erro ao ler o arquivo. Certifique-se de que é um arquivo Excel válido.');
-    }
-    
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
-    }
-  };
+  }
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
       <header className="flex flex-col md:flex-row md:items-end justify-between gap-4">
         <div>
-          <h2 className="text-3xl font-bold text-slate-900 tracking-tight">Lançamentos</h2>
+          <h2 className="text-3xl font-bold text-slate-900 tracking-tight">Dashboard</h2>
           <p className="text-slate-500 mt-1">
-            Insira os gastos para {MONTHS[currentMonthData.month - 1]} de {currentMonthData.year}
+            Visão geral de {MONTHS[currentMonthData.month - 1]} de {currentMonthData.year}
           </p>
         </div>
-        <div className="flex items-center gap-3">
-          <input
-            type="file"
-            accept=".csv,.xlsx,.xls"
-            onChange={handleFileUpload}
-            className="hidden"
-            ref={fileInputRef}
-          />
-          <button
-            onClick={() => fileInputRef.current?.click()}
-            className="flex items-center space-x-2 px-4 py-2.5 bg-white border border-slate-200 hover:border-emerald-500 hover:text-emerald-600 text-slate-700 rounded-xl shadow-sm transition-colors font-medium w-fit"
-          >
-            <Upload size={20} />
-            <span>Importar Planilha</span>
-          </button>
+        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+          <div className="bg-white px-4 py-2 rounded-xl shadow-sm border border-slate-200 flex items-center space-x-3">
+            <div className={`p-2 rounded-lg ${trend <= 0 ? 'bg-emerald-100 text-emerald-600' : 'bg-rose-100 text-rose-600'}`}>
+              {trend <= 0 ? <TrendingDown size={20} /> : <TrendingUp size={20} />}
+            </div>
+            <div>
+              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">vs Mês Anterior</p>
+              <p className={`text-sm font-bold ${trend <= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                {trend > 0 ? '+' : ''}{trend.toFixed(1)}%
+              </p>
+            </div>
+          </div>
           <button
             onClick={handleAddTransaction}
-            className="flex items-center space-x-2 px-4 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl shadow-sm transition-colors font-medium w-fit"
+            className="flex items-center space-x-2 px-4 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl shadow-sm transition-colors font-medium"
           >
             <PlusCircle size={20} />
             <span>Novo Lançamento</span>
@@ -282,202 +151,182 @@ export const DataEntry = () => {
         </div>
       </header>
 
-      {selectedProject === 'ALL' ? (
-        <div className="bg-amber-50 border border-amber-200 text-amber-800 p-4 rounded-xl shadow-sm">
-          <p className="font-medium">Selecione um empreendimento específico no menu lateral para visualizar e editar os orçamentos.</p>
+      {/* Top KPIs */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="bg-[#61072E] rounded-2xl p-6 shadow-sm text-white flex flex-col justify-center items-center text-center">
+          <p className="text-sm font-medium text-white/70 uppercase tracking-wider mb-1">VGV</p>
+          <p className="text-2xl md:text-3xl font-bold">{formatCurrency(totalVGV)}</p>
         </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-          <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 border-t-4 border-t-emerald-500">
-            <h3 className="text-lg font-semibold text-slate-800 mb-4">Orçamento Publicidade - {selectedProject}</h3>
-            <div className="max-w-xs">
-              <label className="block text-sm font-medium text-slate-600 mb-1">Valor Total (R$)</label>
-              <input
-                type="number"
-                value={currentMonthData.budgets[selectedProject]?.publicidade || ''}
-                onChange={(e) => handleBudgetPublicidadeChange(e.target.value)}
-                className="w-full px-4 py-2 rounded-xl border border-slate-300 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition-all"
-                placeholder="Ex: 100000"
-              />
-            </div>
-          </div>
-          <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 border-t-4 border-t-indigo-500">
-            <h3 className="text-lg font-semibold text-slate-800 mb-4">Orçamento Stand - {selectedProject}</h3>
-            <div className="max-w-xs">
-              <label className="block text-sm font-medium text-slate-600 mb-1">Valor Total (R$)</label>
-              <input
-                type="number"
-                value={currentMonthData.budgets[selectedProject]?.stand || ''}
-                onChange={(e) => handleBudgetStandChange(e.target.value)}
-                className="w-full px-4 py-2 rounded-xl border border-slate-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all"
-                placeholder="Ex: 50000"
-              />
-            </div>
-          </div>
-          <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 border-t-4 border-t-amber-500">
-            <h3 className="text-lg font-semibold text-slate-800 mb-4">Orçamento Institucional - {selectedProject}</h3>
-            <div className="max-w-xs">
-              <label className="block text-sm font-medium text-slate-600 mb-1">Valor Total (R$)</label>
-              <input
-                type="number"
-                value={currentMonthData.budgets[selectedProject]?.institucional || ''}
-                onChange={(e) => handleBudgetInstitucionalChange(e.target.value)}
-                className="w-full px-4 py-2 rounded-xl border border-slate-300 focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none transition-all"
-                placeholder="Ex: 20000"
-              />
-            </div>
-          </div>
+        <div className="bg-[#61072E] rounded-2xl p-6 shadow-sm text-white flex flex-col justify-center items-center text-center">
+          <p className="text-sm font-medium text-white/70 uppercase tracking-wider mb-1">CAC</p>
+          <p className="text-2xl md:text-3xl font-bold">{formatCurrency(cac)}</p>
         </div>
-      )}
+        <div className="bg-[#61072E] rounded-2xl p-6 shadow-sm text-white flex flex-col justify-center items-center text-center">
+          <p className="text-sm font-medium text-white/70 uppercase tracking-wider mb-1">Total Previsto</p>
+          <p className="text-2xl md:text-3xl font-bold">{formatCurrency(totalPrevisto)}</p>
+        </div>
+        <div className="bg-[#61072E] rounded-2xl p-6 shadow-sm text-white flex flex-col justify-center items-center text-center">
+          <p className="text-sm font-medium text-white/70 uppercase tracking-wider mb-1">ROI</p>
+          <p className="text-2xl md:text-3xl font-bold">{roi.toFixed(2)}%</p>
+        </div>
+      </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Publicidade */}
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden h-fit">
-          <div className="bg-emerald-500 px-6 py-4">
-            <h3 className="text-lg font-bold text-white tracking-wide">BASAL PUBLICIDADE</h3>
-          </div>
-          <div className="p-6 space-y-4">
-            {PUBLICIDADE_CATEGORIES.map(cat => {
-              const val = filteredTransactions.filter(t => t.date.startsWith(selectedMonthId) && t.category === cat).reduce((sum, t) => sum + t.amount, 0);
-              if (val === 0) return null;
-              return (
-                <div key={cat} className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-2 last:border-0">
-                  <span className="text-sm font-medium text-slate-700">{cat}</span>
-                  <span className="font-bold text-slate-900">{formatCurrency(val)}</span>
-                </div>
-              );
-            })}
-            {PUBLICIDADE_CATEGORIES.every(cat => filteredTransactions.filter(t => t.date.startsWith(selectedMonthId) && t.category === cat).reduce((sum, t) => sum + t.amount, 0) === 0) && (
-              <p className="text-sm text-slate-500 italic">Nenhum lançamento neste mês.</p>
-            )}
+      {/* Middle Section: Charts */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-200">
+          <h3 className="text-lg font-bold text-slate-800 mb-6">Origem x Investimento</h3>
+          <div className="h-80">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={barData} layout="vertical" margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+                <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#e2e8f0" />
+                <XAxis type="number" tickFormatter={(value) => `R$ ${value / 1000}k`} stroke="#64748b" />
+                <YAxis dataKey="name" type="category" width={150} tick={{ fontSize: 12 }} stroke="#64748b" />
+                <Tooltip 
+                  formatter={(value: number) => formatCurrency(value)}
+                  contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                />
+                <Bar dataKey="valor" fill="#10b981" radius={[0, 4, 4, 0]}>
+                  {barData.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
           </div>
         </div>
 
-        {/* Stand */}
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden h-fit">
-          <div className="bg-indigo-500 px-6 py-4">
-            <h3 className="text-lg font-bold text-white tracking-wide">BASAL STAND</h3>
-          </div>
-          <div className="p-6 space-y-4">
-            {STAND_CATEGORIES.map(cat => {
-              const val = filteredTransactions.filter(t => t.date.startsWith(selectedMonthId) && t.category === cat).reduce((sum, t) => sum + t.amount, 0);
-              if (val === 0) return null;
-              return (
-                <div key={cat} className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-2 last:border-0">
-                  <span className="text-sm font-medium text-slate-700">{cat}</span>
-                  <span className="font-bold text-slate-900">{formatCurrency(val)}</span>
-                </div>
-              );
-            })}
-            {STAND_CATEGORIES.every(cat => filteredTransactions.filter(t => t.date.startsWith(selectedMonthId) && t.category === cat).reduce((sum, t) => sum + t.amount, 0) === 0) && (
-              <p className="text-sm text-slate-500 italic">Nenhum lançamento neste mês.</p>
-            )}
-          </div>
-        </div>
+        <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-200">
+          <h3 className="text-lg font-bold text-slate-800 mb-6">Planejado x Investido</h3>
+          <div className="space-y-6">
+            {projectsToInclude.map(p => {
+              const pBudget = (currentMonthData.budgets[p]?.publicidade || 0) + (currentMonthData.budgets[p]?.stand || 0) + (currentMonthData.budgets[p]?.institucional || 0);
+              const pInvestido = filteredTransactions.filter(t => t.project === p).reduce((sum, t) => sum + t.amount, 0);
+              const pPercent = pBudget > 0 ? (pInvestido / pBudget) * 100 : 0;
+              
+              if (pBudget === 0 && pInvestido === 0) return null;
 
-        {/* Institucional */}
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden h-fit">
-          <div className="bg-amber-500 px-6 py-4">
-            <h3 className="text-lg font-bold text-white tracking-wide">BASAL INSTITUCIONAL</h3>
-          </div>
-          <div className="p-6 space-y-4">
-            {INSTITUCIONAL_CATEGORIES.map(cat => {
-              const val = filteredTransactions.filter(t => t.date.startsWith(selectedMonthId) && t.category === cat).reduce((sum, t) => sum + t.amount, 0);
-              if (val === 0) return null;
               return (
-                <div key={cat} className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-2 last:border-0">
-                  <span className="text-sm font-medium text-slate-700">{cat}</span>
-                  <span className="font-bold text-slate-900">{formatCurrency(val)}</span>
+                <div key={p}>
+                  <div className="flex justify-between text-sm mb-1">
+                    <span className="font-medium text-slate-700">{p}</span>
+                    <span className="text-slate-500">{formatCurrency(pInvestido)} / {formatCurrency(pBudget)}</span>
+                  </div>
+                  <div className="w-full bg-slate-100 rounded-full h-4 overflow-hidden flex">
+                    <div 
+                      className={`h-full ${pPercent > 100 ? 'bg-rose-500' : pPercent > 80 ? 'bg-amber-500' : 'bg-emerald-500'}`} 
+                      style={{ width: `${Math.min(pPercent, 100)}%` }}
+                    ></div>
+                  </div>
                 </div>
               );
             })}
-            {INSTITUCIONAL_CATEGORIES.every(cat => filteredTransactions.filter(t => t.date.startsWith(selectedMonthId) && t.category === cat).reduce((sum, t) => sum + t.amount, 0) === 0) && (
-              <p className="text-sm text-slate-500 italic">Nenhum lançamento neste mês.</p>
-            )}
           </div>
         </div>
       </div>
 
-      {/* Histórico de Lançamentos */}
-      <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-        <div className="px-6 py-4 border-b border-slate-200">
-          <h3 className="text-lg font-bold text-slate-800">Histórico de Lançamentos do Mês</h3>
+      {/* Bottom Section */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        {/* 4 KPIs */}
+        <div className="lg:col-span-3 grid grid-cols-2 gap-4">
+          <div className="bg-white rounded-2xl p-4 shadow-sm border border-slate-200 flex flex-col items-center justify-center text-center">
+            <Users className="text-slate-400 mb-2" size={24} />
+            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Leads</p>
+            <p className="text-xl font-bold text-slate-900">{totalLeads.toLocaleString('pt-BR')}</p>
+          </div>
+          <div className="bg-white rounded-2xl p-4 shadow-sm border border-slate-200 flex flex-col items-center justify-center text-center">
+            <ShoppingCart className="text-slate-400 mb-2" size={24} />
+            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Vendas</p>
+            <p className="text-xl font-bold text-slate-900">{totalVendas}</p>
+          </div>
+          <div className="bg-white rounded-2xl p-4 shadow-sm border border-slate-200 flex flex-col items-center justify-center text-center">
+            <Percent className="text-slate-400 mb-2" size={24} />
+            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Taxa de Conversão</p>
+            <p className="text-xl font-bold text-slate-900">{taxaConversao.toFixed(2)}%</p>
+          </div>
+          <div className="bg-white rounded-2xl p-4 shadow-sm border border-slate-200 flex flex-col items-center justify-center text-center">
+            <Activity className="text-slate-400 mb-2" size={24} />
+            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Leads por Venda</p>
+            <p className="text-xl font-bold text-slate-900">{leadsPorVenda.toFixed(0)}</p>
+          </div>
         </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="bg-slate-50 text-slate-500 text-xs uppercase tracking-wider">
-                <th className="px-6 py-3 font-medium">Data</th>
-                <th className="px-6 py-3 font-medium">Local</th>
-                <th className="px-6 py-3 font-medium">Tipo</th>
-                <th className="px-6 py-3 font-medium">Categoria</th>
-                <th className="px-6 py-3 font-medium">Descrição</th>
-                <th className="px-6 py-3 font-medium text-right">Valor</th>
-                <th className="px-6 py-3 font-medium text-center">Ações</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-200 text-sm">
-              {currentMonthTransactions.length === 0 ? (
-                <tr>
-                  <td colSpan={6} className="px-6 py-8 text-center text-slate-500">
-                    Nenhum lançamento encontrado para este mês.
-                  </td>
-                </tr>
-              ) : (
-                currentMonthTransactions.map(t => (
-                  <tr key={t.id} className="hover:bg-slate-50 transition-colors">
-                    <td className="px-6 py-4 whitespace-nowrap text-slate-600">
-                      {new Date(t.date).toLocaleDateString('pt-BR', { timeZone: 'UTC' })}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm font-medium text-slate-900">{t.project}</div>
-                      <div className="text-xs text-slate-500">{t.city}</div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${t.type === 'Publicidade' ? 'bg-emerald-100 text-emerald-700' : t.type === 'Stand' ? 'bg-indigo-100 text-indigo-700' : 'bg-amber-100 text-amber-700'}`}>
-                        {t.type}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap font-medium text-slate-800">
-                      {t.category}
-                    </td>
-                    <td className="px-6 py-4 text-slate-600 max-w-xs truncate">
-                      {t.description || '-'}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right font-bold text-slate-900">
-                      {editingId === t.id ? (
-                        <input
-                          type="number"
-                          value={editAmount}
-                          onChange={(e) => setEditAmount(e.target.value)}
-                          className="w-24 text-right px-2 py-1 border border-emerald-500 rounded outline-none"
-                          autoFocus
-                        />
-                      ) : (
-                        formatCurrency(t.amount)
-                      )}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-center">
-                      {editingId === t.id ? (
-                        <div className="flex items-center justify-center space-x-2">
-                          <button onClick={() => handleEditSave(t.id)} className="p-1 text-emerald-600 hover:bg-emerald-50 rounded">
-                            <Check size={16} />
-                          </button>
-                          <button onClick={handleEditCancel} className="p-1 text-rose-600 hover:bg-rose-50 rounded">
-                            <X size={16} />
-                          </button>
-                        </div>
-                      ) : (
-                        <button onClick={() => handleEditStart(t.id, t.amount)} className="p-1 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded transition-colors">
-                          <Edit2 size={16} />
-                        </button>
-                      )}
-                    </td>
+
+        {/* Combo Chart */}
+        <div className="lg:col-span-5 bg-white rounded-2xl p-6 shadow-sm border border-slate-200">
+          <h3 className="text-sm font-bold text-slate-800 mb-4">Evolução: Leads x Investimento</h3>
+          <div className="h-64">
+            <ResponsiveContainer width="100%" height="100%">
+              <ComposedChart data={comboData} margin={{ top: 5, right: 20, left: 20, bottom: 5 }}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
+                <XAxis dataKey="name" stroke="#64748b" fontSize={12} />
+                <YAxis yAxisId="left" stroke="#64748b" fontSize={12} tickFormatter={(val) => `R$${val/1000}k`} />
+                <YAxis yAxisId="right" orientation="right" stroke="#64748b" fontSize={12} />
+                <Tooltip 
+                  contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                />
+                <Legend />
+                <Bar yAxisId="left" dataKey="investido" name="Investimento Realizado" fill="#61072E" radius={[4, 4, 0, 0]} />
+                <Line yAxisId="left" type="monotone" dataKey="previsto" name="Investimento Previsto" stroke="#f59e0b" strokeWidth={2} dot={false} />
+                <Line yAxisId="right" type="monotone" dataKey="leads" name="Número de Leads" stroke="#10b981" strokeWidth={2} />
+              </ComposedChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        {/* Tables */}
+        <div className="lg:col-span-4 flex flex-col gap-6">
+          <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden flex-1">
+            <div className="px-4 py-3 border-b border-slate-200 bg-slate-50">
+              <h3 className="text-sm font-bold text-slate-800">Previsão (Orçamentos)</h3>
+            </div>
+            <div className="overflow-y-auto max-h-40">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-white sticky top-0">
+                  <tr className="text-slate-500 uppercase tracking-wider">
+                    <th className="px-4 py-2 font-medium">Empreendimento</th>
+                    <th className="px-4 py-2 font-medium text-right">Valor (R$)</th>
                   </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {projectsToInclude.map(p => {
+                    const val = (currentMonthData.budgets[p]?.publicidade || 0) + (currentMonthData.budgets[p]?.stand || 0) + (currentMonthData.budgets[p]?.institucional || 0);
+                    if (val === 0) return null;
+                    return (
+                      <tr key={p} className="hover:bg-slate-50">
+                        <td className="px-4 py-2 font-medium text-slate-700">{p}</td>
+                        <td className="px-4 py-2 text-right text-slate-900">{formatCurrency(val)}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden flex-1">
+            <div className="px-4 py-3 border-b border-slate-200 bg-slate-50">
+              <h3 className="text-sm font-bold text-slate-800">Realizado (Lançamentos)</h3>
+            </div>
+            <div className="overflow-y-auto max-h-40">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-white sticky top-0">
+                  <tr className="text-slate-500 uppercase tracking-wider">
+                    <th className="px-4 py-2 font-medium">Empreendimento</th>
+                    <th className="px-4 py-2 font-medium">Categoria</th>
+                    <th className="px-4 py-2 font-medium text-right">Valor (R$)</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {filteredTransactions.slice(0, 10).map(t => (
+                    <tr key={t.id} className="hover:bg-slate-50">
+                      <td className="px-4 py-2 font-medium text-slate-700">{t.project}</td>
+                      <td className="px-4 py-2 text-slate-600 truncate max-w-[100px]">{t.category}</td>
+                      <td className="px-4 py-2 text-right text-slate-900">{formatCurrency(t.amount)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
         </div>
       </div>
     </div>
