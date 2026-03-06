@@ -5,7 +5,7 @@ import { formatCurrency, MONTHS } from '../utils';
 import { PlusCircle, Edit2, Check, X, Upload } from 'lucide-react';
 import * as xlsx from 'xlsx';
 
-export const DataEntry = () => {
+export default function DataEntry() {
   const { selectedMonthId, currentMonthData, filteredTransactions, updateBudgetPublicidade, updateBudgetStand, updateBudgetInstitucional, setIsModalOpen, updateTransactionAmount, selectedProject, addTransactions } = useExpense();
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editAmount, setEditAmount] = useState<string>('');
