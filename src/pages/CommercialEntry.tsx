@@ -5,7 +5,7 @@ import { useExpense } from '../context/ExpenseContext';
 import { MONTHS, formatCurrency } from '../utils';
 import { Project, SaleRecord, PipelineRecord, City, PROJECTS_BY_CITY, CommercialRecord } from '../types';
 
-export const CommercialEntry = () => {
+export default function CommercialEntry() {
   const { data, currentMonthData, selectedProject, updateCommercialData, addCommercialMetrics, setIsCommercialModalOpen, filteredCommercialRecords, deleteCommercialRecord, addCommercialRecords, addMonth } = useExpense();
   
   const fileInputRef = useRef<HTMLInputElement>(null);
