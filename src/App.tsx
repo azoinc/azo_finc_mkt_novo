@@ -11,7 +11,7 @@ import { Dashboard } from './pages/Dashboard';
 import { DataEntry } from './pages/DataEntry';
 import { CommercialEntry } from './pages/CommercialEntry';
 import { AdminPanel } from './pages/AdminPanel';
-import { Login } from './pages/Login';
+import Login from './pages/Login';
 import { TransactionModal } from './components/TransactionModal';
 import { CommercialModal } from './components/CommercialModal';
 
