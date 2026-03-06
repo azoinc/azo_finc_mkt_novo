@@ -9,7 +9,7 @@ import { UserPlus, Users } from 'lucide-react';
 const secondaryApp = initializeApp(firebaseConfig, "Secondary");
 const secondaryAuth = getAuth(secondaryApp);
 
-export const AdminPanel = () => {
+export default function AdminPanel() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [role, setRole] = useState<UserRole>('FUNCIONARIO_RJ');
