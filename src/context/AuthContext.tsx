@@ -23,10 +23,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setUser(firebaseUser);
       if (firebaseUser) {
         try {
+          console.log("Checking role for UID:", firebaseUser.uid);
           const userDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
+          console.log("Document exists?", userDoc.exists());
           if (userDoc.exists()) {
+            console.log("Document data:", userDoc.data());
             setUserRole(userDoc.data().role as UserRole);
           } else {
+            console.warn("No user document found for this UID in the 'users' collection.");
             setUserRole(null);
           }
         } catch (error) {
