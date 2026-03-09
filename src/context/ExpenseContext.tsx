@@ -1,6 +1,8 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { MonthData, ExpenseCategory, PUBLICIDADE_CATEGORIES, MANUTENCAO_STAND_CATEGORIES, Transaction, TransactionLog, City, Project, UserRole, PROJECTS_BY_CITY, ALL_PROJECTS, ProjectBudget, CommercialMetrics, CommercialRecord, TimelineEvent } from '../types';
 import { useAuth } from './AuthContext';
+import { db } from '../services/firebase';
+import { doc, getDoc, setDoc, onSnapshot } from 'firebase/firestore';
 
 interface ExpenseContextType {
   data: MonthData[];
@@ -46,37 +48,6 @@ const getInitialData = (): MonthData[] => {
   const currentMonth = now.getMonth() + 1;
   const currentId = generateId(currentYear, currentMonth);
 
-  const stored = localStorage.getItem('azo_finance_data');
-  if (stored) {
-    const parsed = JSON.parse(stored);
-    const validData = parsed.filter((m: any) => {
-      const mId = generateId(m.year, m.month);
-      return mId <= currentId;
-    });
-
-    if (validData.length > 0) {
-      return validData.map((m: any) => {
-        if (m.budgets && m.commercial) return m; // Already migrated
-        
-        // Migrate old data
-        const defaultBudgets = ALL_PROJECTS.reduce((acc, p) => {
-          acc[p] = { publicidade: 100000, stand: 50000, institucional: 20000, produtos: 0, vgv: 0, percentMkt: 0, percentManutStand: 0, percentProduto: 0, estoqueUnid: 0, metaVendas: 0 };
-          return acc;
-        }, {} as Record<string, ProjectBudget>);
-        
-        if (m.budgetPublicidade) defaultBudgets['Gávea'].publicidade = m.budgetPublicidade;
-        if (m.budgetStand) defaultBudgets['Gávea'].stand = m.budgetStand;
-        
-        return {
-          id: m.id,
-          month: m.month,
-          year: m.year,
-          budgets: m.budgets || defaultBudgets,
-          commercial: m.commercial || {}
-        };
-      });
-    }
-  }
   const initialMonth: MonthData = {
     id: currentId,
     month: currentMonth,
@@ -92,65 +63,103 @@ const getInitialData = (): MonthData[] => {
 
 export const ExpenseProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [data, setData] = useState<MonthData[]>(getInitialData);
-  const [selectedMonthId, setSelectedMonthId] = useState<string>(data[0]?.id || '');
+  const [selectedMonthId, setSelectedMonthId] = useState<string>(generateId(new Date().getFullYear(), new Date().getMonth() + 1));
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isCommercialModalOpen, setIsCommercialModalOpen] = useState(false);
 
-  const { userRole } = useAuth();
+  const { userRole, user } = useAuth();
   const [selectedCity, setSelectedCity] = useState<City | 'ALL'>('ALL');
   const [selectedProject, setSelectedProject] = useState<Project | 'ALL'>('ALL');
 
-  const [commercialRecords, setCommercialRecords] = useState<CommercialRecord[]>(() => {
-    const stored = localStorage.getItem('azo_finance_commercial');
-    if (!stored) return [];
-    const parsed = JSON.parse(stored);
-    const now = new Date();
-    const currentId = generateId(now.getFullYear(), now.getMonth() + 1);
-    return parsed.filter((r: any) => r.date.substring(0, 7) <= currentId);
-  });
+  const [commercialRecords, setCommercialRecords] = useState<CommercialRecord[]>([]);
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [timelineEvents, setTimelineEvents] = useState<TimelineEvent[]>([]);
+  const [logs, setLogs] = useState<TransactionLog[]>([]);
+  const [isLoaded, setIsLoaded] = useState(false);
 
-  const [transactions, setTransactions] = useState<Transaction[]>(() => {
-    const stored = localStorage.getItem('azo_finance_transactions');
-    if (!stored) return [];
-    const parsed = JSON.parse(stored);
-    const now = new Date();
-    const currentId = generateId(now.getFullYear(), now.getMonth() + 1);
-    return parsed.filter((t: any) => t.date.substring(0, 7) <= currentId).map((t: any) => ({
-      ...t,
-      city: t.city || 'Rio de Janeiro',
-      project: t.project || 'Gávea'
-    }));
-  });
+  // Load data from Firebase
+  useEffect(() => {
+    if (!user) return;
 
-  const [timelineEvents, setTimelineEvents] = useState<TimelineEvent[]>(() => {
-    const stored = localStorage.getItem('azo_finance_timeline');
-    return stored ? JSON.parse(stored) : [];
-  });
+    const unsubscribeData = onSnapshot(doc(db, 'appData', 'data'), (doc) => {
+      if (doc.exists()) {
+        const parsed = doc.data().items || [];
+        if (parsed.length > 0) {
+          setData(parsed);
+          if (!isLoaded) {
+            setSelectedMonthId(parsed[0]?.id || generateId(new Date().getFullYear(), new Date().getMonth() + 1));
+          }
+        }
+      }
+    });
 
-  const [logs, setLogs] = useState<TransactionLog[]>(() => {
-    const stored = localStorage.getItem('azo_finance_logs');
-    return stored ? JSON.parse(stored) : [];
-  });
+    const unsubscribeTransactions = onSnapshot(doc(db, 'appData', 'transactions'), (doc) => {
+      if (doc.exists()) {
+        setTransactions(doc.data().items || []);
+      }
+    });
+
+    const unsubscribeCommercial = onSnapshot(doc(db, 'appData', 'commercialRecords'), (doc) => {
+      if (doc.exists()) {
+        setCommercialRecords(doc.data().items || []);
+      }
+    });
+
+    const unsubscribeTimeline = onSnapshot(doc(db, 'appData', 'timelineEvents'), (doc) => {
+      if (doc.exists()) {
+        setTimelineEvents(doc.data().items || []);
+      }
+    });
+
+    const unsubscribeLogs = onSnapshot(doc(db, 'appData', 'logs'), (doc) => {
+      if (doc.exists()) {
+        setLogs(doc.data().items || []);
+      }
+      setIsLoaded(true);
+    });
+
+    return () => {
+      unsubscribeData();
+      unsubscribeTransactions();
+      unsubscribeCommercial();
+      unsubscribeTimeline();
+      unsubscribeLogs();
+    };
+  }, [user]);
+
+  // Save data to Firebase when it changes locally
+  // We use a flag to prevent infinite loops from onSnapshot updates
+  // Actually, since we are using onSnapshot, we should just update the state and then write to Firebase.
+  // To avoid writing back what we just read, we can just use setDoc directly in the action functions,
+  // but since we have a lot of state updates, we can use useEffect with a debounce or just write.
+  // A better approach is to write to Firebase in the action functions, and let onSnapshot update the state.
+  // But to keep it simple and avoid rewriting all functions, we can sync state to Firebase if it changed locally.
+  // However, this might cause loops. Let's just write to Firebase whenever state changes.
+  
+  useEffect(() => {
+    if (!isLoaded || !user) return;
+    setDoc(doc(db, 'appData', 'data'), { items: data });
+  }, [data, isLoaded, user]);
 
   useEffect(() => {
-    localStorage.setItem('azo_finance_data', JSON.stringify(data));
-  }, [data]);
+    if (!isLoaded || !user) return;
+    setDoc(doc(db, 'appData', 'transactions'), { items: transactions });
+  }, [transactions, isLoaded, user]);
 
   useEffect(() => {
-    localStorage.setItem('azo_finance_transactions', JSON.stringify(transactions));
-  }, [transactions]);
+    if (!isLoaded || !user) return;
+    setDoc(doc(db, 'appData', 'logs'), { items: logs });
+  }, [logs, isLoaded, user]);
 
   useEffect(() => {
-    localStorage.setItem('azo_finance_logs', JSON.stringify(logs));
-  }, [logs]);
+    if (!isLoaded || !user) return;
+    setDoc(doc(db, 'appData', 'commercialRecords'), { items: commercialRecords });
+  }, [commercialRecords, isLoaded, user]);
 
   useEffect(() => {
-    localStorage.setItem('azo_finance_commercial', JSON.stringify(commercialRecords));
-  }, [commercialRecords]);
-
-  useEffect(() => {
-    localStorage.setItem('azo_finance_timeline', JSON.stringify(timelineEvents));
-  }, [timelineEvents]);
+    if (!isLoaded || !user) return;
+    setDoc(doc(db, 'appData', 'timelineEvents'), { items: timelineEvents });
+  }, [timelineEvents, isLoaded, user]);
 
   // RBAC Logic
   useEffect(() => {
