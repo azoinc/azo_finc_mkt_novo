@@ -1,218 +1,354 @@
-import React, { useState, useEffect } from 'react';
-import { db, firebaseConfig } from '../services/firebase';
-import { initializeApp } from 'firebase/app';
-import { getAuth, createUserWithEmailAndPassword, sendPasswordResetEmail } from 'firebase/auth';
-import { doc, setDoc, collection, getDocs, updateDoc } from 'firebase/firestore';
-import { UserRole } from '../types';
-import { UserPlus, Users, KeyRound } from 'lucide-react';
+import React, { createContext, useContext, useState, useEffect } from 'react';
+import { MonthData, ExpenseCategory, PUBLICIDADE_CATEGORIES, MANUTENCAO_STAND_CATEGORIES, Transaction, TransactionLog, City, Project, UserRole, PROJECTS_BY_CITY, ALL_PROJECTS, ProjectBudget, CommercialMetrics, CommercialRecord, TimelineEvent } from '../types';
+import { useAuth } from './AuthContext';
 
-const secondaryApp = initializeApp(firebaseConfig, "Secondary");
-const secondaryAuth = getAuth(secondaryApp);
+interface ExpenseContextType {
+  data: MonthData[];
+  selectedMonthId: string;
+  setSelectedMonthId: (id: string) => void;
+  updateBudget: (project: Project, budget: Partial<ProjectBudget>) => void;
+  updateCommercialData: (project: Project, data: Partial<CommercialMetrics>, monthId?: string) => void;
+  addCommercialMetrics: (project: Project, metrics: { vendas: number, vgv: number }, monthId: string) => void;
+  addMonth: (year: number, month: number) => void;
+  currentMonthData: MonthData | undefined;
+  transactions: Transaction[];
+  filteredTransactions: Transaction[];
+  logs: TransactionLog[];
+  addTransaction: (t: Omit<Transaction, 'id'>) => void;
+  addTransactions: (ts: Omit<Transaction, 'id'>[]) => void;
+  updateTransactionAmount: (id: string, newAmount: number) => void;
+  isModalOpen: boolean;
+  setIsModalOpen: (isOpen: boolean) => void;
+  commercialRecords: CommercialRecord[];
+  filteredCommercialRecords: CommercialRecord[];
+  addCommercialRecord: (record: Omit<CommercialRecord, 'id'>) => void;
+  addCommercialRecords: (records: Omit<CommercialRecord, 'id'>[]) => void;
+  deleteCommercialRecord: (id: string) => void;
+  isCommercialModalOpen: boolean;
+  setIsCommercialModalOpen: (isOpen: boolean) => void;
+  userRole: UserRole | null;
+  selectedCity: City | 'ALL';
+  setSelectedCity: (city: City | 'ALL') => void;
+  selectedProject: Project | 'ALL';
+  setSelectedProject: (project: Project | 'ALL') => void;
+  timelineEvents: TimelineEvent[];
+  addTimelineEvent: (event: Omit<TimelineEvent, 'id'>) => void;
+  deleteTimelineEvent: (id: string) => void;
+}
 
-export default function AdminPanel() {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [role, setRole] = useState<UserRole>('FUNCIONARIO_RJ');
-  const [loading, setLoading] = useState(false);
-  const [message, setMessage] = useState('');
-  const [resetMessage, setResetMessage] = useState('');
-  const [usersList, setUsersList] = useState<any[]>([]);
+const ExpenseContext = createContext<ExpenseContextType | undefined>(undefined);
 
-  const fetchUsers = async () => {
-    try {
-      const querySnapshot = await getDocs(collection(db, 'users'));
-      const users: any[] = [];
-      querySnapshot.forEach((doc) => {
-        users.push({ id: doc.id, ...doc.data() });
+const generateId = (year: number, month: number) => `${year}-${month.toString().padStart(2, '0')}`;
+
+const getInitialData = (): MonthData[] => {
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  const currentMonth = now.getMonth() + 1;
+  const currentId = generateId(currentYear, currentMonth);
+
+  const stored = localStorage.getItem('azo_finance_data');
+  if (stored) {
+    const parsed = JSON.parse(stored);
+    const validData = parsed.filter((m: any) => {
+      const mId = generateId(m.year, m.month);
+      return mId <= currentId;
+    });
+
+    if (validData.length > 0) {
+      return validData.map((m: any) => {
+        if (m.budgets && m.commercial) return m; // Already migrated
+        
+        // Migrate old data
+        const defaultBudgets = ALL_PROJECTS.reduce((acc, p) => {
+          acc[p] = { publicidade: 100000, stand: 50000, institucional: 20000, produtos: 0, vgv: 0, percentMkt: 0, percentManutStand: 0, percentProduto: 0, estoqueUnid: 0, metaVendas: 0 };
+          return acc;
+        }, {} as Record<string, ProjectBudget>);
+        
+        if (m.budgetPublicidade) defaultBudgets['Gávea'].publicidade = m.budgetPublicidade;
+        if (m.budgetStand) defaultBudgets['Gávea'].stand = m.budgetStand;
+        
+        return {
+          id: m.id,
+          month: m.month,
+          year: m.year,
+          budgets: m.budgets || defaultBudgets,
+          commercial: m.commercial || {}
+        };
       });
-      setUsersList(users);
-    } catch (error) {
-      console.error("Error fetching users", error);
     }
+  }
+  const initialMonth: MonthData = {
+    id: currentId,
+    month: currentMonth,
+    year: currentYear,
+    budgets: ALL_PROJECTS.reduce((acc, p) => {
+      acc[p] = { publicidade: 100000, stand: 50000, institucional: 20000, produtos: 0, vgv: 0, percentMkt: 0, percentManutStand: 0, percentProduto: 0, estoqueUnid: 0, metaVendas: 0 };
+      return acc;
+    }, {} as Record<string, ProjectBudget>),
+    commercial: {}
   };
+  return [initialMonth];
+};
+
+export const ExpenseProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const [data, setData] = useState<MonthData[]>(getInitialData);
+  const [selectedMonthId, setSelectedMonthId] = useState<string>(data[0]?.id || '');
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isCommercialModalOpen, setIsCommercialModalOpen] = useState(false);
+
+  const { userRole } = useAuth();
+  const [selectedCity, setSelectedCity] = useState<City | 'ALL'>('ALL');
+  const [selectedProject, setSelectedProject] = useState<Project | 'ALL'>('ALL');
+
+  const [commercialRecords, setCommercialRecords] = useState<CommercialRecord[]>(() => {
+    const stored = localStorage.getItem('azo_finance_commercial');
+    if (!stored) return [];
+    const parsed = JSON.parse(stored);
+    const now = new Date();
+    const currentId = generateId(now.getFullYear(), now.getMonth() + 1);
+    return parsed.filter((r: any) => r.date.substring(0, 7) <= currentId);
+  });
+
+  const [transactions, setTransactions] = useState<Transaction[]>(() => {
+    const stored = localStorage.getItem('azo_finance_transactions');
+    if (!stored) return [];
+    const parsed = JSON.parse(stored);
+    const now = new Date();
+    const currentId = generateId(now.getFullYear(), now.getMonth() + 1);
+    return parsed.filter((t: any) => t.date.substring(0, 7) <= currentId).map((t: any) => ({
+      ...t,
+      city: t.city || 'Rio de Janeiro',
+      project: t.project || 'Gávea'
+    }));
+  });
+
+  const [timelineEvents, setTimelineEvents] = useState<TimelineEvent[]>(() => {
+    const stored = localStorage.getItem('azo_finance_timeline');
+    return stored ? JSON.parse(stored) : [];
+  });
+
+  const [logs, setLogs] = useState<TransactionLog[]>(() => {
+    const stored = localStorage.getItem('azo_finance_logs');
+    return stored ? JSON.parse(stored) : [];
+  });
 
   useEffect(() => {
-    fetchUsers();
-  }, []);
+    localStorage.setItem('azo_finance_data', JSON.stringify(data));
+  }, [data]);
 
-  const handleCreateUser = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    setMessage('');
-    try {
-      const userCredential = await createUserWithEmailAndPassword(secondaryAuth, email, password);
-      const newUser = userCredential.user;
-      
-      await setDoc(doc(db, 'users', newUser.uid), {
-        email: newUser.email,
-        role: role,
-        createdAt: new Date().toISOString()
-      });
-      
-      setMessage('Usuário criado com sucesso!');
-      setEmail('');
-      setPassword('');
-      fetchUsers();
-      
-      await secondaryAuth.signOut();
-    } catch (error: any) {
-      setMessage(`Erro: ${error.message}`);
-    } finally {
-      setLoading(false);
+  useEffect(() => {
+    localStorage.setItem('azo_finance_transactions', JSON.stringify(transactions));
+  }, [transactions]);
+
+  useEffect(() => {
+    localStorage.setItem('azo_finance_logs', JSON.stringify(logs));
+  }, [logs]);
+
+  useEffect(() => {
+    localStorage.setItem('azo_finance_commercial', JSON.stringify(commercialRecords));
+  }, [commercialRecords]);
+
+  useEffect(() => {
+    localStorage.setItem('azo_finance_timeline', JSON.stringify(timelineEvents));
+  }, [timelineEvents]);
+
+  // RBAC Logic
+  useEffect(() => {
+    if (userRole === 'FUNCIONARIO_RJ' || userRole === 'COMERCIAL_RJ') {
+      setSelectedCity('Rio de Janeiro');
+      if (selectedProject !== 'ALL' && !PROJECTS_BY_CITY['Rio de Janeiro'].includes(selectedProject as any)) {
+        setSelectedProject('ALL');
+      }
+    } else if (userRole === 'FUNCIONARIO_CAMPINAS' || userRole === 'COMERCIAL_CAMPINAS') {
+      setSelectedCity('Campinas');
+      if (selectedProject !== 'ALL' && !PROJECTS_BY_CITY['Campinas'].includes(selectedProject as any)) {
+        setSelectedProject('ALL');
+      }
     }
+  }, [userRole, selectedProject]);
+
+  const addTransaction = (t: Omit<Transaction, 'id'>) => {
+    const newTransaction: Transaction = {
+      ...t,
+      id: crypto.randomUUID(),
+    };
+    setTransactions(prev => [...prev, newTransaction]);
+    
+    const [year, month] = t.date.split('-');
+    addMonth(parseInt(year), parseInt(month));
   };
 
-  const handleRoleChange = async (userId: string, newRole: UserRole) => {
-    try {
-      await updateDoc(doc(db, 'users', userId), {
-        role: newRole
-      });
-      setResetMessage('Perfil atualizado com sucesso!');
-      fetchUsers();
-    } catch (error: any) {
-      setResetMessage(`Erro ao atualizar perfil: ${error.message}`);
-    }
+  const addTransactions = (ts: Omit<Transaction, 'id'>[]) => {
+    const newTransactions = ts.map(t => ({
+      ...t,
+      id: crypto.randomUUID(),
+    }));
+    setTransactions(prev => [...prev, ...newTransactions]);
+    
+    // Add unique months
+    const uniqueMonths = new Set<string>();
+    ts.forEach(t => {
+      const [year, month] = t.date.split('-');
+      uniqueMonths.add(`${year}-${month}`);
+    });
+    
+    uniqueMonths.forEach(ym => {
+      const [year, month] = ym.split('-');
+      addMonth(parseInt(year), parseInt(month));
+    });
   };
 
-  const handleResetUserPassword = async (userEmail: string) => {
-    setResetMessage('');
-    try {
-      await sendPasswordResetEmail(secondaryAuth, userEmail);
-      setResetMessage(`E-mail de redefinição enviado para ${userEmail}`);
-    } catch (error: any) {
-      setResetMessage(`Erro ao enviar redefinição: ${error.message}`);
-    }
+  const updateTransactionAmount = (id: string, newAmount: number) => {
+    setTransactions(prev => prev.map(t => {
+      if (t.id === id) {
+        if (t.amount !== newAmount) {
+          const log: TransactionLog = {
+            id: crypto.randomUUID(),
+            transactionId: t.id,
+            timestamp: new Date().toISOString(),
+            oldAmount: t.amount,
+            newAmount: newAmount,
+          };
+          setLogs(l => [...l, log]);
+        }
+        return { ...t, amount: newAmount };
+      }
+      return t;
+    }));
+  };
+
+  const currentMonthTransactions = transactions.filter(t => t.date.startsWith(selectedMonthId));
+  
+  const filteredTransactions = currentMonthTransactions.filter(t => {
+    if (selectedCity !== 'ALL' && t.city !== selectedCity) return false;
+    if (selectedProject !== 'ALL' && t.project !== selectedProject) return false;
+    return true;
+  });
+
+  const currentMonthCommercialRecords = commercialRecords.filter(r => r.date.startsWith(selectedMonthId));
+
+  const filteredCommercialRecords = currentMonthCommercialRecords.filter(r => {
+    if (selectedCity !== 'ALL' && r.city !== selectedCity) return false;
+    if (selectedProject !== 'ALL' && r.project !== selectedProject) return false;
+    return true;
+  });
+
+  const currentMonthData = data.find(m => m.id === selectedMonthId);
+
+  const updateBudget = (project: Project, budget: Partial<ProjectBudget>) => {
+    setData(prev => prev.map(m => {
+      if (m.id === selectedMonthId) {
+        return {
+          ...m,
+          budgets: {
+            ...m.budgets,
+            [project]: { ...m.budgets[project], ...budget }
+          }
+        };
+      }
+      return m;
+    }));
+  };
+
+  const updateCommercialData = (project: Project, commercialData: Partial<CommercialMetrics>, monthId?: string) => {
+    const targetMonthId = monthId || selectedMonthId;
+    setData(prev => prev.map(m => {
+      if (m.id === targetMonthId) {
+        const currentCommercial = m.commercial[project] || { leads: 0, vendas: 0, vgv: 0 };
+        return {
+          ...m,
+          commercial: {
+            ...m.commercial,
+            [project]: { ...currentCommercial, ...commercialData }
+          }
+        };
+      }
+      return m;
+    }));
+  };
+
+  const addCommercialMetrics = (project: Project, metrics: { vendas: number, vgv: number }, monthId: string) => {
+    setData(prev => prev.map(m => {
+      if (m.id === monthId) {
+        const currentCommercial = m.commercial[project] || { leads: 0, vendas: 0, vgv: 0 };
+        return {
+          ...m,
+          commercial: {
+            ...m.commercial,
+            [project]: { 
+              ...currentCommercial, 
+              vendas: currentCommercial.vendas + metrics.vendas,
+              vgv: currentCommercial.vgv + metrics.vgv
+            }
+          }
+        };
+      }
+      return m;
+    }));
+  };
+
+  const addCommercialRecord = (record: Omit<CommercialRecord, 'id'>) => {
+    const newRecord = { ...record, id: Date.now().toString() } as CommercialRecord;
+    setCommercialRecords(prev => [...prev, newRecord]);
+  };
+
+  const addCommercialRecords = (records: Omit<CommercialRecord, 'id'>[]) => {
+    const newRecords = records.map((r, i) => ({ ...r, id: `${Date.now()}-${i}` } as CommercialRecord));
+    setCommercialRecords(prev => [...prev, ...newRecords]);
+  };
+
+  const deleteCommercialRecord = (id: string) => {
+    setCommercialRecords(prev => prev.filter(r => r.id !== id));
+  };
+
+  const addMonth = (year: number, month: number) => {
+    const id = generateId(year, month);
+    setData(prev => {
+      if (!prev.find(m => m.id === id)) {
+        const newMonth: MonthData = {
+          id,
+          month,
+          year,
+          budgets: ALL_PROJECTS.reduce((acc, p) => {
+            acc[p] = { publicidade: 100000, stand: 50000, institucional: 20000, produtos: 0, vgv: 0, percentMkt: 0, percentManutStand: 0, percentProduto: 0, estoqueUnid: 0, metaVendas: 0 };
+            return acc;
+          }, {} as Record<string, ProjectBudget>),
+          commercial: {}
+        };
+        return [...prev, newMonth].sort((a, b) => b.id.localeCompare(a.id));
+      }
+      return prev;
+    });
+    setSelectedMonthId(id);
+  };
+
+  const addTimelineEvent = (event: Omit<TimelineEvent, 'id'>) => {
+    const newEvent: TimelineEvent = {
+      ...event,
+      id: crypto.randomUUID()
+    };
+    setTimelineEvents(prev => [...prev, newEvent]);
+  };
+
+  const deleteTimelineEvent = (id: string) => {
+    setTimelineEvents(prev => prev.filter(e => e.id !== id));
   };
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-500">
-      <header>
-        <h2 className="text-3xl font-bold text-slate-900 tracking-tight">Painel Administrativo</h2>
-        <p className="text-slate-500 mt-1">Gerencie os usuários do sistema</p>
-      </header>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
-          <div className="flex items-center space-x-2 mb-6">
-            <UserPlus className="text-emerald-500" />
-            <h3 className="text-lg font-bold text-slate-800">Criar Novo Usuário</h3>
-          </div>
-          
-          {message && (
-            <div className={`p-3 rounded-lg text-sm mb-6 ${message.includes('Erro') ? 'bg-rose-50 text-rose-600' : 'bg-emerald-50 text-emerald-600'}`}>
-              {message}
-            </div>
-          )}
-
-          <form onSubmit={handleCreateUser} className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">E-mail</label>
-              <input
-                type="email"
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="w-full px-4 py-2 rounded-xl border border-slate-300 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition-all"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Senha</label>
-              <input
-                type="password"
-                required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full px-4 py-2 rounded-xl border border-slate-300 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition-all"
-                minLength={6}
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Perfil de Acesso</label>
-              <select
-                value={role}
-                onChange={(e) => setRole(e.target.value as UserRole)}
-                className="w-full px-4 py-2 rounded-xl border border-slate-300 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition-all bg-white"
-              >
-                <option value="DIRETORIA">Diretoria</option>
-                <option value="ADMINISTRATIVO">Administrativo</option>
-                <option value="FUNCIONARIO_RJ">Funcionário RJ</option>
-                <option value="FUNCIONARIO_CAMPINAS">Funcionário Campinas</option>
-                <option value="COMERCIAL_RJ">Comercial RJ</option>
-                <option value="COMERCIAL_CAMPINAS">Comercial Campinas</option>
-              </select>
-            </div>
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-medium py-2.5 rounded-xl transition-colors disabled:opacity-50"
-            >
-              {loading ? 'Criando...' : 'Criar Usuário'}
-            </button>
-          </form>
-        </div>
-
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
-          <div className="flex items-center space-x-2 mb-6">
-            <Users className="text-indigo-500" />
-            <h3 className="text-lg font-bold text-slate-800">Usuários Cadastrados</h3>
-          </div>
-
-          {resetMessage && (
-            <div className={`p-3 rounded-lg text-sm mb-6 ${resetMessage.includes('Erro') ? 'bg-rose-50 text-rose-600' : 'bg-emerald-50 text-emerald-600'}`}>
-              {resetMessage}
-            </div>
-          )}
-
-          <div className="overflow-y-auto max-h-[400px]">
-            <table className="w-full text-left text-sm">
-              <thead className="bg-slate-50 sticky top-0">
-                <tr className="text-slate-500">
-                  <th className="px-4 py-2 font-medium">E-mail</th>
-                  <th className="px-4 py-2 font-medium">Perfil</th>
-                  <th className="px-4 py-2 font-medium text-center">Ações</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {usersList.filter(u => u.role !== 'MASTER').map(u => (
-                  <tr key={u.id} className="hover:bg-slate-50">
-                    <td className="px-4 py-3 text-slate-700">{u.email}</td>
-                    <td className="px-4 py-3 text-slate-700">
-                      <select
-                        value={u.role}
-                        onChange={(e) => handleRoleChange(u.id, e.target.value as UserRole)}
-                        className="px-2 py-1 bg-slate-100 rounded-lg text-xs font-medium border-none focus:ring-2 focus:ring-indigo-500 outline-none cursor-pointer"
-                      >
-                        <option value="DIRETORIA">Diretoria</option>
-                        <option value="ADMINISTRATIVO">Administrativo</option>
-                        <option value="FUNCIONARIO_RJ">Funcionário RJ</option>
-                        <option value="FUNCIONARIO_CAMPINAS">Funcionário Campinas</option>
-                        <option value="COMERCIAL_RJ">Comercial RJ</option>
-                        <option value="COMERCIAL_CAMPINAS">Comercial Campinas</option>
-                      </select>
-                    </td>
-                    <td className="px-4 py-3 text-center">
-                      <button
-                        onClick={() => handleResetUserPassword(u.email)}
-                        title="Enviar e-mail de redefinição de senha"
-                        className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
-                      >
-                        <KeyRound size={16} />
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-                {usersList.length === 0 && (
-                  <tr>
-                    <td colSpan={3} className="px-4 py-4 text-center text-slate-500">
-                      Nenhum usuário encontrado.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-    </div>
+    <ExpenseContext.Provider value={{ 
+      data, selectedMonthId, setSelectedMonthId, updateBudget, updateCommercialData, addCommercialMetrics, addMonth, currentMonthData,
+      transactions, filteredTransactions, logs, addTransaction, addTransactions, updateTransactionAmount, isModalOpen, setIsModalOpen,
+      commercialRecords, filteredCommercialRecords, addCommercialRecord, addCommercialRecords, deleteCommercialRecord, isCommercialModalOpen, setIsCommercialModalOpen,
+      userRole, selectedCity, setSelectedCity, selectedProject, setSelectedProject,
+      timelineEvents, addTimelineEvent, deleteTimelineEvent
+    }}>
+      {children}
+    </ExpenseContext.Provider>
   );
+};
+
+export const useExpense = () => {
+  const context = useContext(ExpenseContext);
+  if (!context) throw new Error('useExpense must be used within ExpenseProvider');
+  return context;
 };
