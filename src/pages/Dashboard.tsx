@@ -8,7 +8,7 @@ import { TrendingUp, TrendingDown, DollarSign, Target, PlusCircle, Users, Shoppi
 const COLORS = ['#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#14b8a6', '#f97316', '#6366f1', '#84cc16'];
 
 export default function Dashboard() {
-  const { data, currentMonthData, setIsModalOpen, selectedCity, selectedProject, filteredTransactions, transactions } = useExpense();
+  const { data, currentMonthData, setIsModalOpen, selectedCity, selectedProject, filteredTransactions, transactions, timelineEvents, selectedMonthId } = useExpense();
 
   if (!currentMonthData) return <div>Carregando...</div>;
 
@@ -135,6 +135,11 @@ export default function Dashboard() {
       trend = ((totalGasto - prevTotal) / prevTotal) * 100;
     }
   }
+
+  const currentMonthEvents = timelineEvents.filter(e => e.date.startsWith(selectedMonthId)).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+  const [year, month] = selectedMonthId.split('-').map(Number);
+  const daysInMonth = new Date(year, month, 0).getDate();
+  const days = Array.from({ length: daysInMonth }, (_, i) => i + 1);
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
@@ -355,6 +360,39 @@ export default function Dashboard() {
                 </tbody>
               </table>
             </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Timeline Visualization */}
+      <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 overflow-x-auto mt-6">
+        <h3 className="text-lg font-bold text-slate-800 mb-6">Timeline de Ações</h3>
+        <div className="min-w-[800px]">
+          <div className="flex items-center justify-between mb-8 relative">
+            <div className="absolute left-0 right-0 top-1/2 h-0.5 bg-slate-200 -z-10"></div>
+            {days.map(day => {
+              const dateStr = `${selectedMonthId}-${day.toString().padStart(2, '0')}`;
+              const hasEvents = currentMonthEvents.some(e => e.date === dateStr);
+              
+              return (
+                <div key={day} className="flex flex-col items-center relative group">
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold transition-colors ${hasEvents ? 'bg-emerald-500 text-white shadow-md shadow-emerald-500/30' : 'bg-slate-100 text-slate-400 border border-slate-200'}`}>
+                    {day}
+                  </div>
+                  {hasEvents && (
+                    <div className="absolute top-10 w-48 bg-slate-800 text-white text-xs rounded-lg p-3 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-10 shadow-xl">
+                      {currentMonthEvents.filter(e => e.date === dateStr).map((e, i) => (
+                        <div key={e.id} className={`${i > 0 ? 'mt-2 pt-2 border-t border-slate-700' : ''}`}>
+                          <div className="font-bold text-emerald-400">{e.project}</div>
+                          <div className="font-medium">{e.location}</div>
+                          <div className="text-slate-300 mt-1">{e.action}</div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
         </div>
       </div>
