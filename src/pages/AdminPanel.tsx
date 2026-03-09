@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { db, firebaseConfig } from '../services/firebase';
 import { initializeApp } from 'firebase/app';
 import { getAuth, createUserWithEmailAndPassword, sendPasswordResetEmail } from 'firebase/auth';
-import { doc, setDoc, collection, getDocs } from 'firebase/firestore';
+import { doc, setDoc, collection, getDocs, updateDoc } from 'firebase/firestore';
 import { UserRole } from '../types';
 import { UserPlus, Users, KeyRound } from 'lucide-react';
 
@@ -59,6 +59,18 @@ export default function AdminPanel() {
       setMessage(`Erro: ${error.message}`);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleRoleChange = async (userId: string, newRole: UserRole) => {
+    try {
+      await updateDoc(doc(db, 'users', userId), {
+        role: newRole
+      });
+      setResetMessage('Perfil atualizado com sucesso!');
+      fetchUsers();
+    } catch (error: any) {
+      setResetMessage(`Erro ao atualizar perfil: ${error.message}`);
     }
   };
 
@@ -165,9 +177,18 @@ export default function AdminPanel() {
                   <tr key={u.id} className="hover:bg-slate-50">
                     <td className="px-4 py-3 text-slate-700">{u.email}</td>
                     <td className="px-4 py-3 text-slate-700">
-                      <span className="px-2 py-1 bg-slate-100 rounded-lg text-xs font-medium">
-                        {u.role}
-                      </span>
+                      <select
+                        value={u.role}
+                        onChange={(e) => handleRoleChange(u.id, e.target.value as UserRole)}
+                        className="px-2 py-1 bg-slate-100 rounded-lg text-xs font-medium border-none focus:ring-2 focus:ring-indigo-500 outline-none cursor-pointer"
+                      >
+                        <option value="DIRETORIA">Diretoria</option>
+                        <option value="ADMINISTRATIVO">Administrativo</option>
+                        <option value="FUNCIONARIO_RJ">Funcionário RJ</option>
+                        <option value="FUNCIONARIO_CAMPINAS">Funcionário Campinas</option>
+                        <option value="COMERCIAL_RJ">Comercial RJ</option>
+                        <option value="COMERCIAL_CAMPINAS">Comercial Campinas</option>
+                      </select>
                     </td>
                     <td className="px-4 py-3 text-center">
                       <button
