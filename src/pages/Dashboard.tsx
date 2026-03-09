@@ -365,30 +365,70 @@ export default function Dashboard() {
       </div>
 
       {/* Timeline Visualization */}
-      <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 overflow-x-auto mt-6">
-        <h3 className="text-lg font-bold text-slate-800 mb-6">Timeline de Ações</h3>
-        <div className="min-w-[800px]">
-          <div className="flex items-center justify-between mb-8 relative">
-            <div className="absolute left-0 right-0 top-1/2 h-0.5 bg-slate-200 -z-10"></div>
-            {days.map(day => {
+      <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-8 overflow-x-auto mt-6">
+        <h3 className="text-lg font-bold text-slate-800 mb-12">Timeline de Ações</h3>
+        <div className="min-w-[1200px] py-12">
+          <div className="flex items-center justify-between relative">
+            {/* Main horizontal line */}
+            <div className="absolute left-0 right-0 top-1/2 h-2 bg-slate-200 -z-10 rounded-full"></div>
+            
+            {days.map((day, index) => {
               const dateStr = `${selectedMonthId}-${day.toString().padStart(2, '0')}`;
-              const hasEvents = currentMonthEvents.some(e => e.date === dateStr);
+              const dayEvents = currentMonthEvents.filter(e => e.date === dateStr);
+              const hasEvents = dayEvents.length > 0;
+              
+              // Alternate up and down for nodes with events
+              const isUp = index % 2 === 0;
+              
+              // Color palette for nodes
+              const nodeColors = [
+                'bg-emerald-500', 'bg-blue-500', 'bg-amber-500', 'bg-rose-500', 'bg-indigo-500'
+              ];
+              const nodeColor = hasEvents ? nodeColors[day % nodeColors.length] : 'bg-slate-300';
               
               return (
-                <div key={day} className="flex flex-col items-center relative group">
-                  <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold transition-colors ${hasEvents ? 'bg-emerald-500 text-white shadow-md shadow-emerald-500/30' : 'bg-slate-100 text-slate-400 border border-slate-200'}`}>
-                    {day}
-                  </div>
+                <div key={day} className="flex flex-col items-center relative group w-8">
+                  {/* The Node */}
+                  <div className={`w-6 h-6 rounded-full border-4 border-white shadow-sm z-10 ${nodeColor}`}></div>
+                  
                   {hasEvents && (
-                    <div className="absolute top-10 w-48 bg-slate-800 text-white text-xs rounded-lg p-3 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-10 shadow-xl">
-                      {currentMonthEvents.filter(e => e.date === dateStr).map((e, i) => (
-                        <div key={e.id} className={`${i > 0 ? 'mt-2 pt-2 border-t border-slate-700' : ''}`}>
-                          <div className="font-bold text-emerald-400">{e.project}</div>
-                          <div className="font-medium">{e.location}</div>
-                          <div className="text-slate-300 mt-1">{e.action}</div>
+                    <>
+                      {/* Connecting Line */}
+                      <div className={`absolute w-0.5 ${nodeColor} opacity-50`} 
+                           style={{ 
+                             height: '60px', 
+                             top: isUp ? '-60px' : '24px',
+                             left: '50%',
+                             transform: 'translateX(-50%)'
+                           }}>
+                      </div>
+                      
+                      {/* Triangle Pointer */}
+                      <div className={`absolute w-0 h-0 border-l-[6px] border-l-transparent border-r-[6px] border-r-transparent ${isUp ? 'border-b-[8px] border-b-' + nodeColor.replace('bg-', '') : 'border-t-[8px] border-t-' + nodeColor.replace('bg-', '')}`}
+                           style={{
+                             top: isUp ? '-10px' : '26px',
+                             left: '50%',
+                             transform: 'translateX(-50%)',
+                             borderBottomColor: isUp ? nodeColor.replace('bg-', '') : 'transparent',
+                             borderTopColor: !isUp ? nodeColor.replace('bg-', '') : 'transparent',
+                           }}>
+                      </div>
+
+                      {/* Content Box */}
+                      <div className={`absolute w-48 ${isUp ? 'bottom-[80px]' : 'top-[80px]'} left-1/2 -translate-x-1/2`}>
+                        <div className={`text-xl font-bold mb-2 text-center ${nodeColor.replace('bg-', 'text-')}`}>
+                          {day.toString().padStart(2, '0')}
                         </div>
-                      ))}
-                    </div>
+                        <div className="bg-white p-3 rounded-xl shadow-md border border-slate-100 text-sm">
+                          {dayEvents.map((e, i) => (
+                            <div key={e.id} className={`${i > 0 ? 'mt-2 pt-2 border-t border-slate-100' : ''}`}>
+                              <div className="font-bold text-slate-800">{e.title || e.project}</div>
+                              <div className="text-xs text-slate-500 mt-1 line-clamp-2">{e.action}</div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </>
                   )}
                 </div>
               );
