@@ -7,6 +7,17 @@ import { TrendingUp, TrendingDown, DollarSign, Target, PlusCircle, Users, Shoppi
 
 const COLORS = ['#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#14b8a6', '#f97316', '#6366f1', '#84cc16'];
 
+const PROJECT_COLORS: Record<string, string> = {
+  'Gávea': 'bg-emerald-500',
+  'Ipanema': 'bg-blue-500',
+  'Insigna': 'bg-amber-500',
+  'A Noite': 'bg-rose-500',
+  'Ares': 'bg-indigo-500',
+  'Verter': 'bg-purple-500',
+  'Casa da Mata': 'bg-pink-500',
+  'Natus': 'bg-cyan-500'
+};
+
 export default function Dashboard() {
   const { data, currentMonthData, setIsModalOpen, selectedCity, selectedProject, filteredTransactions, transactions, timelineEvents, selectedMonthId } = useExpense();
 
@@ -366,8 +377,18 @@ export default function Dashboard() {
 
       {/* Timeline Visualization */}
       <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-8 overflow-x-auto mt-6">
-        <h3 className="text-lg font-bold text-slate-800 mb-12">Timeline de Ações</h3>
-        <div className="min-w-[1200px] py-12">
+        <div className="flex flex-col md:flex-row md:items-center justify-between mb-12 gap-4">
+          <h3 className="text-lg font-bold text-slate-800">Timeline de Ações</h3>
+          <div className="flex flex-wrap gap-3">
+            {Object.entries(PROJECT_COLORS).map(([proj, color]) => (
+              <div key={proj} className="flex items-center space-x-1.5">
+                <div className={`w-3 h-3 rounded-full ${color}`}></div>
+                <span className="text-xs font-medium text-slate-600">{proj}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+        <div className="min-w-[1200px] py-12 px-28">
           <div className="flex items-center justify-between relative">
             {/* Main horizontal line */}
             <div className="absolute left-0 right-0 top-1/2 h-2 bg-slate-200 -z-10 rounded-full"></div>
@@ -380,11 +401,8 @@ export default function Dashboard() {
               // Alternate up and down for nodes with events
               const isUp = index % 2 === 0;
               
-              // Color palette for nodes
-              const nodeColors = [
-                'bg-emerald-500', 'bg-blue-500', 'bg-amber-500', 'bg-rose-500', 'bg-indigo-500'
-              ];
-              const nodeColor = hasEvents ? nodeColors[day % nodeColors.length] : 'bg-slate-300';
+              // Color palette for nodes based on project
+              const nodeColor = hasEvents ? (PROJECT_COLORS[dayEvents[0].project] || 'bg-slate-800') : 'bg-slate-300';
               
               return (
                 <div key={day} className="flex flex-col items-center relative group w-8">
@@ -422,7 +440,10 @@ export default function Dashboard() {
                         <div className="bg-white p-3 rounded-xl shadow-md border border-slate-100 text-sm">
                           {dayEvents.map((e, i) => (
                             <div key={e.id} className={`${i > 0 ? 'mt-2 pt-2 border-t border-slate-100' : ''}`}>
-                              <div className="font-bold text-slate-800">{e.title || e.project}</div>
+                              <div className="flex items-center space-x-1.5">
+                                <div className={`w-2 h-2 rounded-full flex-shrink-0 ${PROJECT_COLORS[e.project] || 'bg-slate-800'}`}></div>
+                                <div className="font-bold text-slate-800 truncate">{e.title || e.project}</div>
+                              </div>
                               <div className="text-xs text-slate-500 mt-1 line-clamp-2">{e.action}</div>
                             </div>
                           ))}
