@@ -13,7 +13,7 @@ export default function Dashboard() {
   if (!currentMonthData) return <div>Carregando...</div>;
 
   const handleAddTransaction = () => {
-    setIsModalOpen(true);a
+    setIsModalOpen(true);
   };
 
   const totalPublicidade = PUBLICIDADE_CATEGORIES.reduce((acc, cat) => acc + filteredTransactions.filter(t => t.category === cat).reduce((sum, t) => sum + t.amount, 0), 0);
