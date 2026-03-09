@@ -1,14 +1,18 @@
 import React, { useState, useRef } from 'react';
 import { useExpense } from '../context/ExpenseContext';
+import { useAuth } from '../context/AuthContext';
 import { PUBLICIDADE_CATEGORIES, STAND_CATEGORIES, INSTITUCIONAL_CATEGORIES, ExpenseCategory, ALL_PROJECTS, PROJECTS_BY_CITY, Project, City, Transaction } from '../types';
 import { formatCurrency, MONTHS } from '../utils';
-import { PlusCircle, Edit2, Check, X, Upload } from 'lucide-react';
+import { PlusCircle, Edit2, Check, X, Upload, Settings } from 'lucide-react';
 import * as xlsx from 'xlsx';
+import { BudgetModal } from '../components/BudgetModal';
 
 export default function DataEntry() {
   const { selectedMonthId, currentMonthData, filteredTransactions, updateBudgetPublicidade, updateBudgetStand, updateBudgetInstitucional, setIsModalOpen, updateTransactionAmount, selectedProject, addTransactions } = useExpense();
+  const { userRole } = useAuth();
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editAmount, setEditAmount] = useState<string>('');
+  const [isBudgetModalOpen, setIsBudgetModalOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   if (!currentMonthData) return <div>Carregando...</div>;
@@ -35,24 +39,6 @@ export default function DataEntry() {
   };
 
   const currentMonthTransactions = filteredTransactions.filter(t => t.date.startsWith(selectedMonthId)).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-
-  const handleBudgetPublicidadeChange = (value: string) => {
-    if (selectedProject === 'ALL') return;
-    const num = parseFloat(value);
-    updateBudgetPublicidade(selectedProject, isNaN(num) ? 0 : num);
-  };
-
-  const handleBudgetStandChange = (value: string) => {
-    if (selectedProject === 'ALL') return;
-    const num = parseFloat(value);
-    updateBudgetStand(selectedProject, isNaN(num) ? 0 : num);
-  };
-
-  const handleBudgetInstitucionalChange = (value: string) => {
-    if (selectedProject === 'ALL') return;
-    const num = parseFloat(value);
-    updateBudgetInstitucional(selectedProject, isNaN(num) ? 0 : num);
-  };
 
   const normalizeString = (str: string) => str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
 
@@ -258,6 +244,15 @@ export default function DataEntry() {
           </p>
         </div>
         <div className="flex items-center gap-3">
+          {(userRole === 'MASTER' || userRole === 'DIRETORIA') && (
+            <button
+              onClick={() => setIsBudgetModalOpen(true)}
+              className="flex items-center space-x-2 px-4 py-2.5 bg-slate-800 hover:bg-slate-900 text-white rounded-xl shadow-sm transition-colors font-medium w-fit"
+            >
+              <Settings size={20} />
+              <span className="hidden sm:inline">Definir Previsões</span>
+            </button>
+          )}
           <input
             type="file"
             accept=".csv,.xlsx,.xls"
@@ -284,51 +279,38 @@ export default function DataEntry() {
 
       {selectedProject === 'ALL' ? (
         <div className="bg-amber-50 border border-amber-200 text-amber-800 p-4 rounded-xl shadow-sm">
-          <p className="font-medium">Selecione um empreendimento específico no menu lateral para visualizar e editar os orçamentos.</p>
+          <p className="font-medium">Selecione um empreendimento específico no menu lateral para visualizar as previsões de orçamento.</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 border-t-4 border-t-emerald-500">
             <h3 className="text-lg font-semibold text-slate-800 mb-4">Orçamento Publicidade - {selectedProject}</h3>
             <div className="max-w-xs">
-              <label className="block text-sm font-medium text-slate-600 mb-1">Valor Total (R$)</label>
-              <input
-                type="number"
-                value={currentMonthData.budgets[selectedProject]?.publicidade || ''}
-                onChange={(e) => handleBudgetPublicidadeChange(e.target.value)}
-                className="w-full px-4 py-2 rounded-xl border border-slate-300 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition-all"
-                placeholder="Ex: 100000"
-              />
+              <p className="text-3xl font-bold text-slate-900">
+                {formatCurrency(currentMonthData.budgets[selectedProject]?.publicidade || 0)}
+              </p>
             </div>
           </div>
           <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 border-t-4 border-t-indigo-500">
             <h3 className="text-lg font-semibold text-slate-800 mb-4">Orçamento Stand - {selectedProject}</h3>
             <div className="max-w-xs">
-              <label className="block text-sm font-medium text-slate-600 mb-1">Valor Total (R$)</label>
-              <input
-                type="number"
-                value={currentMonthData.budgets[selectedProject]?.stand || ''}
-                onChange={(e) => handleBudgetStandChange(e.target.value)}
-                className="w-full px-4 py-2 rounded-xl border border-slate-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all"
-                placeholder="Ex: 50000"
-              />
+              <p className="text-3xl font-bold text-slate-900">
+                {formatCurrency(currentMonthData.budgets[selectedProject]?.stand || 0)}
+              </p>
             </div>
           </div>
           <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 border-t-4 border-t-amber-500">
             <h3 className="text-lg font-semibold text-slate-800 mb-4">Orçamento Institucional - {selectedProject}</h3>
             <div className="max-w-xs">
-              <label className="block text-sm font-medium text-slate-600 mb-1">Valor Total (R$)</label>
-              <input
-                type="number"
-                value={currentMonthData.budgets[selectedProject]?.institucional || ''}
-                onChange={(e) => handleBudgetInstitucionalChange(e.target.value)}
-                className="w-full px-4 py-2 rounded-xl border border-slate-300 focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none transition-all"
-                placeholder="Ex: 20000"
-              />
+              <p className="text-3xl font-bold text-slate-900">
+                {formatCurrency(currentMonthData.budgets[selectedProject]?.institucional || 0)}
+              </p>
             </div>
           </div>
         </div>
       )}
+
+      <BudgetModal isOpen={isBudgetModalOpen} onClose={() => setIsBudgetModalOpen(false)} />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Publicidade */}
