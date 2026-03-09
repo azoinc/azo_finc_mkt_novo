@@ -141,37 +141,6 @@ export default function Timeline() {
         </div>
       )}
 
-      <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 overflow-x-auto">
-        <div className="min-w-[800px]">
-          <div className="flex items-center justify-between mb-8 relative">
-            <div className="absolute left-0 right-0 top-1/2 h-0.5 bg-slate-200 -z-10"></div>
-            {days.map(day => {
-              const dateStr = `${selectedMonthId}-${day.toString().padStart(2, '0')}`;
-              const hasEvents = currentMonthEvents.some(e => e.date === dateStr);
-              
-              return (
-                <div key={day} className="flex flex-col items-center relative group">
-                  <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold transition-colors ${hasEvents ? 'bg-emerald-500 text-white shadow-md shadow-emerald-500/30' : 'bg-slate-100 text-slate-400 border border-slate-200'}`}>
-                    {day}
-                  </div>
-                  {hasEvents && (
-                    <div className="absolute top-10 w-48 bg-slate-800 text-white text-xs rounded-lg p-3 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-10 shadow-xl">
-                      {currentMonthEvents.filter(e => e.date === dateStr).map((e, i) => (
-                        <div key={e.id} className={`${i > 0 ? 'mt-2 pt-2 border-t border-slate-700' : ''}`}>
-                          <div className="font-bold text-emerald-400">{e.project}</div>
-                          <div className="font-medium">{e.location}</div>
-                          <div className="text-slate-300 mt-1">{e.action}</div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      </div>
-
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {currentMonthEvents.map(event => (
           <div key={event.id} className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden flex flex-col">
