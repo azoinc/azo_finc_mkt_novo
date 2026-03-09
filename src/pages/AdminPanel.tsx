@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { db, firebaseConfig } from '../services/firebase';
 import { initializeApp } from 'firebase/app';
-import { getAuth, createUserWithEmailAndPassword } from 'firebase/auth';
+import { getAuth, createUserWithEmailAndPassword, sendPasswordResetEmail } from 'firebase/auth';
 import { doc, setDoc, collection, getDocs } from 'firebase/firestore';
 import { UserRole } from '../types';
-import { UserPlus, Users } from 'lucide-react';
+import { UserPlus, Users, KeyRound } from 'lucide-react';
 
 const secondaryApp = initializeApp(firebaseConfig, "Secondary");
 const secondaryAuth = getAuth(secondaryApp);
@@ -15,6 +15,7 @@ export default function AdminPanel() {
   const [role, setRole] = useState<UserRole>('FUNCIONARIO_RJ');
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
+  const [resetMessage, setResetMessage] = useState('');
   const [usersList, setUsersList] = useState<any[]>([]);
 
   const fetchUsers = async () => {
@@ -58,6 +59,16 @@ export default function AdminPanel() {
       setMessage(`Erro: ${error.message}`);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleResetUserPassword = async (userEmail: string) => {
+    setResetMessage('');
+    try {
+      await sendPasswordResetEmail(secondaryAuth, userEmail);
+      setResetMessage(`E-mail de redefinição enviado para ${userEmail}`);
+    } catch (error: any) {
+      setResetMessage(`Erro ao enviar redefinição: ${error.message}`);
     }
   };
 
@@ -133,12 +144,20 @@ export default function AdminPanel() {
             <Users className="text-indigo-500" />
             <h3 className="text-lg font-bold text-slate-800">Usuários Cadastrados</h3>
           </div>
+
+          {resetMessage && (
+            <div className={`p-3 rounded-lg text-sm mb-6 ${resetMessage.includes('Erro') ? 'bg-rose-50 text-rose-600' : 'bg-emerald-50 text-emerald-600'}`}>
+              {resetMessage}
+            </div>
+          )}
+
           <div className="overflow-y-auto max-h-[400px]">
             <table className="w-full text-left text-sm">
               <thead className="bg-slate-50 sticky top-0">
                 <tr className="text-slate-500">
                   <th className="px-4 py-2 font-medium">E-mail</th>
                   <th className="px-4 py-2 font-medium">Perfil</th>
+                  <th className="px-4 py-2 font-medium text-center">Ações</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -150,11 +169,20 @@ export default function AdminPanel() {
                         {u.role}
                       </span>
                     </td>
+                    <td className="px-4 py-3 text-center">
+                      <button
+                        onClick={() => handleResetUserPassword(u.email)}
+                        title="Enviar e-mail de redefinição de senha"
+                        className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
+                      >
+                        <KeyRound size={16} />
+                      </button>
+                    </td>
                   </tr>
                 ))}
                 {usersList.length === 0 && (
                   <tr>
-                    <td colSpan={2} className="px-4 py-4 text-center text-slate-500">
+                    <td colSpan={3} className="px-4 py-4 text-center text-slate-500">
                       Nenhum usuário encontrado.
                     </td>
                   </tr>
