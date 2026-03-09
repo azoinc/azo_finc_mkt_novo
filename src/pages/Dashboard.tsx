@@ -1,6 +1,6 @@
 import React from 'react';
 import { useExpense } from '../context/ExpenseContext';
-import { PUBLICIDADE_CATEGORIES, STAND_CATEGORIES, INSTITUCIONAL_CATEGORIES, PROJECTS_BY_CITY, ALL_PROJECTS } from '../types';
+import { PUBLICIDADE_CATEGORIES, MANUTENCAO_STAND_CATEGORIES, INSTITUCIONAL_CATEGORIES, PROJECTS_BY_CITY, ALL_PROJECTS } from '../types';
 import { formatCurrency, MONTHS } from '../utils';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid, Legend, ComposedChart, Line } from 'recharts';
 import { TrendingUp, TrendingDown, DollarSign, Target, PlusCircle, Users, ShoppingCart, Percent, Activity } from 'lucide-react';
@@ -13,21 +13,27 @@ export default function Dashboard() {
   if (!currentMonthData) return <div>Carregando...</div>;
 
   const handleAddTransaction = () => {
-    setIsModalOpen(true);
+    setIsModalOpen(true);a
   };
 
   const totalPublicidade = PUBLICIDADE_CATEGORIES.reduce((acc, cat) => acc + filteredTransactions.filter(t => t.category === cat).reduce((sum, t) => sum + t.amount, 0), 0);
-  const totalStand = STAND_CATEGORIES.reduce((acc, cat) => acc + filteredTransactions.filter(t => t.category === cat).reduce((sum, t) => sum + t.amount, 0), 0);
+  const totalStand = MANUTENCAO_STAND_CATEGORIES.reduce((acc, cat) => acc + filteredTransactions.filter(t => t.category === cat).reduce((sum, t) => sum + t.amount, 0), 0);
   const totalInstitucional = INSTITUCIONAL_CATEGORIES.reduce((acc, cat) => acc + filteredTransactions.filter(t => t.category === cat).reduce((sum, t) => sum + t.amount, 0), 0);
   const totalGasto = totalPublicidade + totalStand + totalInstitucional;
 
   let budgetPub = 0;
   let budgetStand = 0;
   let budgetInst = 0;
+  let budgetProdutos = 0;
   let totalLeads = 0;
   let totalVendas = 0;
   let totalVGV = 0;
-  
+  let totalVgvProduto = 0;
+  let totalEstoque = 0;
+  let totalMetaVendas = 0;
+  let totalVisitasOn = 0;
+  let totalVisitasOff = 0;
+
   const projectsToInclude = selectedProject !== 'ALL' 
     ? [selectedProject] 
     : selectedCity !== 'ALL' 
@@ -35,21 +41,31 @@ export default function Dashboard() {
       : ALL_PROJECTS;
 
   projectsToInclude.forEach(p => {
-    budgetPub += currentMonthData.budgets[p]?.publicidade || 0;
-    budgetStand += currentMonthData.budgets[p]?.stand || 0;
-    budgetInst += currentMonthData.budgets[p]?.institucional || 0;
+    const b = currentMonthData.budgets[p];
+    if (b) {
+      budgetPub += b.publicidade || 0;
+      budgetStand += b.stand || 0;
+      budgetInst += b.institucional || 0;
+      budgetProdutos += b.produtos || 0;
+      totalVgvProduto += b.vgv || 0;
+      totalEstoque += b.estoqueUnid || 0;
+      totalMetaVendas += b.metaVendas || 0;
+    }
     
     const comm = currentMonthData.commercial[p];
     if (comm) {
       totalLeads += comm.leads || 0;
       totalVendas += comm.vendas || 0;
       totalVGV += comm.vgv || 0;
+      totalVisitasOn += comm.visitasOn || 0;
+      totalVisitasOff += comm.visitasOff || 0;
     }
   });
 
-  const totalPrevisto = budgetPub + budgetStand + budgetInst;
-  const cac = totalVendas > 0 ? totalGasto / totalVendas : 0;
-  const roi = totalGasto > 0 ? ((totalVGV - totalGasto) / totalGasto) * 100 : 0;
+  const totalPrevisto = budgetPub + budgetStand + budgetInst + budgetProdutos;
+  const percentMkt = totalVgvProduto > 0 ? (budgetPub / totalVgvProduto) * 100 : 0;
+  const percentManutStand = totalVgvProduto > 0 ? (budgetStand / totalVgvProduto) * 100 : 0;
+  const percentProduto = totalVgvProduto > 0 ? (budgetProdutos / totalVgvProduto) * 100 : 0;
   const taxaConversao = totalLeads > 0 ? (totalVendas / totalLeads) * 100 : 0;
   const leadsPorVenda = totalVendas > 0 ? totalLeads / totalVendas : 0;
 
@@ -152,22 +168,30 @@ export default function Dashboard() {
       </header>
 
       {/* Top KPIs */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div className="bg-[#61072E] rounded-2xl p-6 shadow-sm text-white flex flex-col justify-center items-center text-center">
-          <p className="text-sm font-medium text-white/70 uppercase tracking-wider mb-1">VGV</p>
-          <p className="text-2xl md:text-3xl font-bold">{formatCurrency(totalVGV)}</p>
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+        <div className="bg-[#61072E] rounded-2xl p-4 shadow-sm text-white flex flex-col justify-center items-center text-center">
+          <p className="text-xs font-medium text-white/70 uppercase tracking-wider mb-1">VGV do Produto</p>
+          <p className="text-xl font-bold">{formatCurrency(totalVgvProduto)}</p>
         </div>
-        <div className="bg-[#61072E] rounded-2xl p-6 shadow-sm text-white flex flex-col justify-center items-center text-center">
-          <p className="text-sm font-medium text-white/70 uppercase tracking-wider mb-1">CAC</p>
-          <p className="text-2xl md:text-3xl font-bold">{formatCurrency(cac)}</p>
+        <div className="bg-[#61072E] rounded-2xl p-4 shadow-sm text-white flex flex-col justify-center items-center text-center">
+          <p className="text-xs font-medium text-white/70 uppercase tracking-wider mb-1">% MKT</p>
+          <p className="text-xl font-bold">{percentMkt.toFixed(2)}%</p>
         </div>
-        <div className="bg-[#61072E] rounded-2xl p-6 shadow-sm text-white flex flex-col justify-center items-center text-center">
-          <p className="text-sm font-medium text-white/70 uppercase tracking-wider mb-1">Total Previsto</p>
-          <p className="text-2xl md:text-3xl font-bold">{formatCurrency(totalPrevisto)}</p>
+        <div className="bg-[#61072E] rounded-2xl p-4 shadow-sm text-white flex flex-col justify-center items-center text-center">
+          <p className="text-xs font-medium text-white/70 uppercase tracking-wider mb-1">% Manut. Stand</p>
+          <p className="text-xl font-bold">{percentManutStand.toFixed(2)}%</p>
         </div>
-        <div className="bg-[#61072E] rounded-2xl p-6 shadow-sm text-white flex flex-col justify-center items-center text-center">
-          <p className="text-sm font-medium text-white/70 uppercase tracking-wider mb-1">ROI</p>
-          <p className="text-2xl md:text-3xl font-bold">{roi.toFixed(2)}%</p>
+        <div className="bg-[#61072E] rounded-2xl p-4 shadow-sm text-white flex flex-col justify-center items-center text-center">
+          <p className="text-xs font-medium text-white/70 uppercase tracking-wider mb-1">% Produto</p>
+          <p className="text-xl font-bold">{percentProduto.toFixed(2)}%</p>
+        </div>
+        <div className="bg-[#61072E] rounded-2xl p-4 shadow-sm text-white flex flex-col justify-center items-center text-center">
+          <p className="text-xs font-medium text-white/70 uppercase tracking-wider mb-1">Estoque de Unid.</p>
+          <p className="text-xl font-bold">{totalEstoque}</p>
+        </div>
+        <div className="bg-[#61072E] rounded-2xl p-4 shadow-sm text-white flex flex-col justify-center items-center text-center">
+          <p className="text-xs font-medium text-white/70 uppercase tracking-wider mb-1">Meta de Vendas</p>
+          <p className="text-xl font-bold">{totalMetaVendas}</p>
         </div>
       </div>
 
@@ -196,10 +220,10 @@ export default function Dashboard() {
         </div>
 
         <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-200">
-          <h3 className="text-lg font-bold text-slate-800 mb-6">Planejado x Investido</h3>
+          <h3 className="text-lg font-bold text-slate-800 mb-6">Planejado x Realizado</h3>
           <div className="space-y-6">
             {projectsToInclude.map(p => {
-              const pBudget = (currentMonthData.budgets[p]?.publicidade || 0) + (currentMonthData.budgets[p]?.stand || 0) + (currentMonthData.budgets[p]?.institucional || 0);
+              const pBudget = (currentMonthData.budgets[p]?.publicidade || 0) + (currentMonthData.budgets[p]?.stand || 0) + (currentMonthData.budgets[p]?.institucional || 0) + (currentMonthData.budgets[p]?.produtos || 0);
               const pInvestido = filteredTransactions.filter(t => t.project === p).reduce((sum, t) => sum + t.amount, 0);
               const pPercent = pBudget > 0 ? (pInvestido / pBudget) * 100 : 0;
               
@@ -226,7 +250,7 @@ export default function Dashboard() {
 
       {/* Bottom Section */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* 4 KPIs */}
+        {/* 6 KPIs */}
         <div className="lg:col-span-3 grid grid-cols-2 gap-4">
           <div className="bg-white rounded-2xl p-4 shadow-sm border border-slate-200 flex flex-col items-center justify-center text-center">
             <Users className="text-slate-400 mb-2" size={24} />
@@ -239,14 +263,19 @@ export default function Dashboard() {
             <p className="text-xl font-bold text-slate-900">{totalVendas}</p>
           </div>
           <div className="bg-white rounded-2xl p-4 shadow-sm border border-slate-200 flex flex-col items-center justify-center text-center">
-            <Percent className="text-slate-400 mb-2" size={24} />
-            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Taxa de Conversão</p>
-            <p className="text-xl font-bold text-slate-900">{taxaConversao.toFixed(2)}%</p>
+            <Activity className="text-slate-400 mb-2" size={24} />
+            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Visitas On</p>
+            <p className="text-xl font-bold text-slate-900">{totalVisitasOn}</p>
           </div>
           <div className="bg-white rounded-2xl p-4 shadow-sm border border-slate-200 flex flex-col items-center justify-center text-center">
             <Activity className="text-slate-400 mb-2" size={24} />
-            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Leads por Venda</p>
-            <p className="text-xl font-bold text-slate-900">{leadsPorVenda.toFixed(0)}</p>
+            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Visitas Off</p>
+            <p className="text-xl font-bold text-slate-900">{totalVisitasOff}</p>
+          </div>
+          <div className="bg-white rounded-2xl p-4 shadow-sm border border-slate-200 flex flex-col items-center justify-center text-center col-span-2">
+            <DollarSign className="text-slate-400 mb-2" size={24} />
+            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">VGV Realizado</p>
+            <p className="text-xl font-bold text-slate-900">{formatCurrency(totalVGV)}</p>
           </div>
         </div>
 
@@ -288,7 +317,7 @@ export default function Dashboard() {
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {projectsToInclude.map(p => {
-                    const val = (currentMonthData.budgets[p]?.publicidade || 0) + (currentMonthData.budgets[p]?.stand || 0) + (currentMonthData.budgets[p]?.institucional || 0);
+                    const val = (currentMonthData.budgets[p]?.publicidade || 0) + (currentMonthData.budgets[p]?.stand || 0) + (currentMonthData.budgets[p]?.institucional || 0) + (currentMonthData.budgets[p]?.produtos || 0);
                     if (val === 0) return null;
                     return (
                       <tr key={p} className="hover:bg-slate-50">
