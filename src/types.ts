@@ -162,6 +162,7 @@ export interface TimelineEvent {
   id: string;
   date: string; // YYYY-MM-DD
   project: Project;
+  title: string;
   location: string;
   action: string;
   imageUrl?: string;
