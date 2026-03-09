@@ -113,7 +113,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({ activeTab })
             <select
               value={city}
               onChange={(e) => setCity(e.target.value as City)}
-              disabled={userRole !== 'MASTER' && userRole !== 'DIRETORIA' && userRole !== 'ADMINISTRATIVO'}
+              disabled={userRole !== 'MASTER' && userRole !== 'ADMINISTRATIVO'}
               className="w-full px-4 py-2 rounded-xl border border-slate-300 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition-all bg-white disabled:bg-slate-50 disabled:text-slate-500"
             >
               <option value="Rio de Janeiro">Rio de Janeiro</option>
