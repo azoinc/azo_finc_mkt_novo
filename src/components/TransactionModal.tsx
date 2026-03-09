@@ -3,7 +3,11 @@ import { X } from 'lucide-react';
 import { useExpense } from '../context/ExpenseContext';
 import { ExpenseCategory, PUBLICIDADE_CATEGORIES, MANUTENCAO_STAND_CATEGORIES, INSTITUCIONAL_CATEGORIES, PRODUTOS_CATEGORIES, City, Project, PROJECTS_BY_CITY } from '../types';
 
-export const TransactionModal = () => {
+interface TransactionModalProps {
+  activeTab?: 'dashboard' | 'entry' | 'commercial' | 'institucional' | 'timeline' | 'admin';
+}
+
+export const TransactionModal: React.FC<TransactionModalProps> = ({ activeTab }) => {
   const { isModalOpen, setIsModalOpen, addTransaction, selectedCity, selectedProject, userRole } = useExpense();
   
   const [date, setDate] = useState('');
@@ -19,8 +23,15 @@ export const TransactionModal = () => {
     if (isModalOpen) {
       const today = new Date();
       setDate(today.toISOString().split('T')[0]);
-      setType('Publicidade');
-      setCategory(PUBLICIDADE_CATEGORIES[0]);
+      
+      if (activeTab === 'institucional') {
+        setType('Institucional');
+        setCategory(INSTITUCIONAL_CATEGORIES[0]);
+      } else {
+        setType('Publicidade');
+        setCategory(PUBLICIDADE_CATEGORIES[0]);
+      }
+      
       setAmount('');
       setDescription('');
       
@@ -125,35 +136,41 @@ export const TransactionModal = () => {
 
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">Tipo</label>
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                type="button"
-                onClick={() => setType('Publicidade')}
-                className={`py-2 px-2 rounded-xl border text-xs font-medium transition-all ${type === 'Publicidade' ? 'bg-emerald-50 border-emerald-500 text-emerald-700' : 'border-slate-200 text-slate-600 hover:bg-slate-50'}`}
-              >
-                Publicidade
-              </button>
-              <button
-                type="button"
-                onClick={() => setType('Manutenção de Stand')}
-                className={`py-2 px-2 rounded-xl border text-xs font-medium transition-all ${type === 'Manutenção de Stand' ? 'bg-indigo-50 border-indigo-500 text-indigo-700' : 'border-slate-200 text-slate-600 hover:bg-slate-50'}`}
-              >
-                Manutenção de Stand
-              </button>
-              <button
-                type="button"
-                onClick={() => setType('Produtos')}
-                className={`py-2 px-2 rounded-xl border text-xs font-medium transition-all ${type === 'Produtos' ? 'bg-blue-50 border-blue-500 text-blue-700' : 'border-slate-200 text-slate-600 hover:bg-slate-50'}`}
-              >
-                Produtos
-              </button>
-              <button
-                type="button"
-                onClick={() => setType('Institucional')}
-                className={`py-2 px-2 rounded-xl border text-xs font-medium transition-all ${type === 'Institucional' ? 'bg-amber-50 border-amber-500 text-amber-700' : 'border-slate-200 text-slate-600 hover:bg-slate-50'}`}
-              >
-                Institucional
-              </button>
+            <div className={`grid gap-2 ${activeTab === 'institucional' ? 'grid-cols-1' : 'grid-cols-3'}`}>
+              {activeTab !== 'institucional' && (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => setType('Publicidade')}
+                    className={`py-2 px-2 rounded-xl border text-xs font-medium transition-all ${type === 'Publicidade' ? 'bg-emerald-50 border-emerald-500 text-emerald-700' : 'border-slate-200 text-slate-600 hover:bg-slate-50'}`}
+                  >
+                    Publicidade
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setType('Manutenção de Stand')}
+                    className={`py-2 px-2 rounded-xl border text-xs font-medium transition-all ${type === 'Manutenção de Stand' ? 'bg-indigo-50 border-indigo-500 text-indigo-700' : 'border-slate-200 text-slate-600 hover:bg-slate-50'}`}
+                  >
+                    Manutenção de Stand
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setType('Produtos')}
+                    className={`py-2 px-2 rounded-xl border text-xs font-medium transition-all ${type === 'Produtos' ? 'bg-blue-50 border-blue-500 text-blue-700' : 'border-slate-200 text-slate-600 hover:bg-slate-50'}`}
+                  >
+                    Produtos
+                  </button>
+                </>
+              )}
+              {activeTab === 'institucional' && (
+                <button
+                  type="button"
+                  onClick={() => setType('Institucional')}
+                  className={`py-2 px-2 rounded-xl border text-xs font-medium transition-all ${type === 'Institucional' ? 'bg-amber-50 border-amber-500 text-amber-700' : 'border-slate-200 text-slate-600 hover:bg-slate-50'}`}
+                >
+                  Institucional
+                </button>
+              )}
             </div>
           </div>
 
