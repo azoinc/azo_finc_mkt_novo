@@ -120,7 +120,7 @@ export const CommercialModal = () => {
     setIsCommercialModalOpen(false);
   };
 
-  const availableCities: City[] = (userRole === 'MASTER' || userRole === 'DIRETORIA' || userRole === 'ADMINISTRATIVO') ? ['Rio de Janeiro', 'Campinas'] : [(userRole === 'FUNCIONARIO_RJ' || userRole === 'COMERCIAL_RJ') ? 'Rio de Janeiro' : 'Campinas'];
+  const availableCities: City[] = (userRole === 'MASTER' || userRole === 'ADMINISTRATIVO') ? ['Rio de Janeiro', 'Campinas'] : [(userRole === 'FUNCIONARIO_RJ' || userRole === 'COMERCIAL_RJ') ? 'Rio de Janeiro' : 'Campinas'];
 
   return (
     <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
