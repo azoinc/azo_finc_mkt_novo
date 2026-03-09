@@ -1,13 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
 import { useExpense } from '../context/ExpenseContext';
-import { ExpenseCategory, PUBLICIDADE_CATEGORIES, STAND_CATEGORIES, INSTITUCIONAL_CATEGORIES, City, Project, PROJECTS_BY_CITY } from '../types';
+import { ExpenseCategory, PUBLICIDADE_CATEGORIES, MANUTENCAO_STAND_CATEGORIES, INSTITUCIONAL_CATEGORIES, PRODUTOS_CATEGORIES, City, Project, PROJECTS_BY_CITY } from '../types';
 
 export const TransactionModal = () => {
   const { isModalOpen, setIsModalOpen, addTransaction, selectedCity, selectedProject, userRole } = useExpense();
   
   const [date, setDate] = useState('');
-  const [type, setType] = useState<'Publicidade' | 'Stand' | 'Institucional'>('Publicidade');
+  const [type, setType] = useState<'Publicidade' | 'Manutenção de Stand' | 'Institucional' | 'Produtos'>('Publicidade');
   const [category, setCategory] = useState<ExpenseCategory>(PUBLICIDADE_CATEGORIES[0]);
   const [amount, setAmount] = useState('');
   const [description, setDescription] = useState('');
@@ -39,8 +39,10 @@ export const TransactionModal = () => {
   useEffect(() => {
     if (type === 'Publicidade') {
       setCategory(PUBLICIDADE_CATEGORIES[0]);
-    } else if (type === 'Stand') {
-      setCategory(STAND_CATEGORIES[0]);
+    } else if (type === 'Manutenção de Stand') {
+      setCategory(MANUTENCAO_STAND_CATEGORIES[0]);
+    } else if (type === 'Produtos') {
+      setCategory(PRODUTOS_CATEGORIES[0]);
     } else {
       setCategory(INSTITUCIONAL_CATEGORIES[0]);
     }
@@ -123,7 +125,7 @@ export const TransactionModal = () => {
 
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">Tipo</label>
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-2 gap-2">
               <button
                 type="button"
                 onClick={() => setType('Publicidade')}
@@ -133,10 +135,17 @@ export const TransactionModal = () => {
               </button>
               <button
                 type="button"
-                onClick={() => setType('Stand')}
-                className={`py-2 px-2 rounded-xl border text-xs font-medium transition-all ${type === 'Stand' ? 'bg-indigo-50 border-indigo-500 text-indigo-700' : 'border-slate-200 text-slate-600 hover:bg-slate-50'}`}
+                onClick={() => setType('Manutenção de Stand')}
+                className={`py-2 px-2 rounded-xl border text-xs font-medium transition-all ${type === 'Manutenção de Stand' ? 'bg-indigo-50 border-indigo-500 text-indigo-700' : 'border-slate-200 text-slate-600 hover:bg-slate-50'}`}
               >
-                Stand
+                Manutenção de Stand
+              </button>
+              <button
+                type="button"
+                onClick={() => setType('Produtos')}
+                className={`py-2 px-2 rounded-xl border text-xs font-medium transition-all ${type === 'Produtos' ? 'bg-blue-50 border-blue-500 text-blue-700' : 'border-slate-200 text-slate-600 hover:bg-slate-50'}`}
+              >
+                Produtos
               </button>
               <button
                 type="button"
@@ -155,7 +164,7 @@ export const TransactionModal = () => {
               onChange={(e) => setCategory(e.target.value as ExpenseCategory)}
               className="w-full px-4 py-2 rounded-xl border border-slate-300 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition-all bg-white"
             >
-              {(type === 'Publicidade' ? PUBLICIDADE_CATEGORIES : type === 'Stand' ? STAND_CATEGORIES : INSTITUCIONAL_CATEGORIES).map(cat => (
+              {(type === 'Publicidade' ? PUBLICIDADE_CATEGORIES : type === 'Manutenção de Stand' ? MANUTENCAO_STAND_CATEGORIES : type === 'Produtos' ? PRODUTOS_CATEGORIES : INSTITUCIONAL_CATEGORIES).map(cat => (
                 <option key={cat} value={cat}>{cat}</option>
               ))}
             </select>
