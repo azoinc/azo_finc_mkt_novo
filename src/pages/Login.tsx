@@ -1,16 +1,19 @@
 import React, { useState } from 'react';
 import { auth } from '../services/firebase';
-import { signInWithEmailAndPassword } from 'firebase/auth';
+import { signInWithEmailAndPassword, sendPasswordResetEmail } from 'firebase/auth';
 
 export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(false);
+  const [isResetting, setIsResetting] = useState(false);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    setMessage('');
     setLoading(true);
     try {
       await signInWithEmailAndPassword(auth, email, password);
@@ -18,6 +21,24 @@ export default function Login() {
       setError('Falha no login. Verifique suas credenciais.');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleResetPassword = async () => {
+    if (!email) {
+      setError('Por favor, insira seu e-mail para redefinir a senha.');
+      return;
+    }
+    setError('');
+    setMessage('');
+    setIsResetting(true);
+    try {
+      await sendPasswordResetEmail(auth, email);
+      setMessage('E-mail de redefinição de senha enviado! Verifique sua caixa de entrada.');
+    } catch (err: any) {
+      setError('Erro ao enviar e-mail de redefinição. Verifique se o e-mail está correto.');
+    } finally {
+      setIsResetting(false);
     }
   };
 
@@ -35,6 +56,12 @@ export default function Login() {
         {error && (
           <div className="bg-rose-50 text-rose-600 p-3 rounded-lg text-sm mb-6 text-center">
             {error}
+          </div>
+        )}
+
+        {message && (
+          <div className="bg-emerald-50 text-emerald-600 p-3 rounded-lg text-sm mb-6 text-center">
+            {message}
           </div>
         )}
 
@@ -63,12 +90,23 @@ export default function Login() {
           </div>
           <button
             type="submit"
-            disabled={loading}
+            disabled={loading || isResetting}
             className="w-full bg-[#61072E] hover:bg-[#4a0523] text-white font-medium py-2.5 rounded-xl transition-colors disabled:opacity-50"
           >
             {loading ? 'Entrando...' : 'Entrar'}
           </button>
         </form>
+
+        <div className="mt-6 text-center">
+          <button
+            type="button"
+            onClick={handleResetPassword}
+            disabled={isResetting || loading}
+            className="text-sm text-slate-500 hover:text-[#61072E] font-medium transition-colors disabled:opacity-50"
+          >
+            {isResetting ? 'Enviando...' : 'Esqueci minha senha'}
+          </button>
+        </div>
       </div>
     </div>
   );
