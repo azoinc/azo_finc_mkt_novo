@@ -223,14 +223,14 @@ export default function CommercialEntry() {
 
   if (!currentMonthData) return <div>Carregando...</div>;
 
-  const handleCommercialChange = (field: 'leads' | 'vendas' | 'vgv', value: string) => {
+  const handleCommercialChange = (field: 'leads' | 'vendas' | 'vgv' | 'visitasOn' | 'visitasOff', value: string) => {
     if (selectedProject === 'ALL') return;
     const num = parseFloat(value);
     updateCommercialData(selectedProject as Project, { [field]: isNaN(num) ? 0 : num });
   };
 
   const currentCommercial = selectedProject !== 'ALL' 
-    ? (currentMonthData.commercial[selectedProject] || { leads: 0, vendas: 0, vgv: 0 })
+    ? (currentMonthData.commercial[selectedProject] || { leads: 0, vendas: 0, vgv: 0, visitasOn: 0, visitasOff: 0 })
     : null;
 
   return (
@@ -306,6 +306,28 @@ export default function CommercialEntry() {
                 onChange={(e) => handleCommercialChange('vgv', e.target.value)}
                 className="w-full px-4 py-2 rounded-xl border border-slate-300 focus:ring-2 focus:ring-rose-500 focus:border-rose-500 outline-none transition-all"
                 placeholder="Ex: 5000000"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-slate-600 mb-1">Visitas On</label>
+              <input
+                type="number"
+                value={currentCommercial?.visitasOn || ''}
+                onChange={(e) => handleCommercialChange('visitasOn', e.target.value)}
+                className="w-full px-4 py-2 rounded-xl border border-slate-300 focus:ring-2 focus:ring-rose-500 focus:border-rose-500 outline-none transition-all"
+                placeholder="Ex: 300"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-slate-600 mb-1">Visitas Off</label>
+              <input
+                type="number"
+                value={currentCommercial?.visitasOff || ''}
+                onChange={(e) => handleCommercialChange('visitasOff', e.target.value)}
+                className="w-full px-4 py-2 rounded-xl border border-slate-300 focus:ring-2 focus:ring-rose-500 focus:border-rose-500 outline-none transition-all"
+                placeholder="Ex: 150"
               />
             </div>
           </div>
