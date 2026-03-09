@@ -7,8 +7,8 @@ import { City, Project, PROJECTS_BY_CITY } from '../types';
 
 interface LayoutProps {
   children: React.ReactNode;
-  activeTab: 'dashboard' | 'entry' | 'commercial' | 'admin';
-  setActiveTab: (tab: 'dashboard' | 'entry' | 'commercial' | 'admin') => void;
+  activeTab: 'dashboard' | 'entry' | 'commercial' | 'institucional' | 'timeline' | 'admin';
+  setActiveTab: (tab: 'dashboard' | 'entry' | 'commercial' | 'institucional' | 'timeline' | 'admin') => void;
 }
 
 export const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab }) => {
@@ -30,7 +30,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTa
         <div className="p-5 flex items-center justify-between md:justify-center border-b border-[#4a0523]">
           <div className="flex items-center space-x-2">
             <div className="w-8 h-8 bg-emerald-500 rounded-lg flex items-center justify-center font-bold text-[#61072E]">A</div>
-            <h1 className="text-xl font-bold tracking-tight text-white">Azo Finance</h1>
+            <h1 className="text-xl font-bold tracking-tight text-white">Dashboard - Marketing Azo</h1>
           </div>
           <button className="md:hidden p-2 text-white/70 hover:text-white" onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}>
             {isMobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
@@ -76,6 +76,20 @@ export const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTa
             >
               <TrendingUp size={20} />
               <span className="font-medium">Comercial</span>
+            </button>
+            <button
+              onClick={() => { setActiveTab('institucional'); setIsMobileMenuOpen(false); }}
+              className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl transition-all duration-200 ${activeTab === 'institucional' ? 'bg-emerald-500 text-[#61072E] shadow-md shadow-emerald-500/20' : 'hover:bg-[#4a0523] text-white/70 hover:text-white'}`}
+            >
+              <Building2 size={20} />
+              <span className="font-medium">Institucional</span>
+            </button>
+            <button
+              onClick={() => { setActiveTab('timeline'); setIsMobileMenuOpen(false); }}
+              className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl transition-all duration-200 ${activeTab === 'timeline' ? 'bg-emerald-500 text-[#61072E] shadow-md shadow-emerald-500/20' : 'hover:bg-[#4a0523] text-white/70 hover:text-white'}`}
+            >
+              <TrendingUp size={20} />
+              <span className="font-medium">Timeline</span>
             </button>
             {userRole === 'MASTER' && (
               <button
@@ -154,6 +168,10 @@ export const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTa
                   ))}
                 </select>
               </div>
+            </div>
+            <div className="mt-6 text-center">
+              <p className="text-[10px] text-white/40 uppercase tracking-widest">Feito por</p>
+              <p className="text-xs font-medium text-white/60">Bruno "Tiffs" Mossato</p>
             </div>
           </div>
         </div>
