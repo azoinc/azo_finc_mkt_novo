@@ -21,7 +21,8 @@ export type ExpenseCategory =
   | 'SOFTWARE | PLATAFORMAS'
   | 'SITE | MANUTENÇÃO'
   | 'MARCAS E PATENTE'
-  | 'HOSPEDAGEM/DOMINIOS';
+  | 'HOSPEDAGEM/DOMINIOS'
+  | 'PRODUTOS GERAIS';
 
 export const PUBLICIDADE_CATEGORIES: ExpenseCategory[] = [
   'AGÊNCIA OFF',
@@ -36,10 +37,14 @@ export const PUBLICIDADE_CATEGORIES: ExpenseCategory[] = [
   'MIDIA OFF',
 ];
 
-export const STAND_CATEGORIES: ExpenseCategory[] = [
+export const MANUTENCAO_STAND_CATEGORIES: ExpenseCategory[] = [
   'DESMOBILIZAÇÃO',
   'MANUTENÇÃO',
   'CASA DECORADA',
+];
+
+export const PRODUTOS_CATEGORIES: ExpenseCategory[] = [
+  'PRODUTOS GERAIS'
 ];
 
 export const INSTITUCIONAL_CATEGORIES: ExpenseCategory[] = [
@@ -71,12 +76,21 @@ export interface ProjectBudget {
   publicidade: number;
   stand: number;
   institucional: number;
+  produtos: number;
+  vgv: number;
+  percentMkt: number;
+  percentManutStand: number;
+  percentProduto: number;
+  estoqueUnid: number;
+  metaVendas: number;
 }
 
 export interface CommercialMetrics {
   leads: number;
   vendas: number;
   vgv: number;
+  visitasOn: number;
+  visitasOff: number;
 }
 
 export type CommercialRecordType = 'venda' | 'pipeline';
@@ -130,7 +144,7 @@ export interface Transaction {
   date: string; // YYYY-MM-DD
   city: City;
   project: Project;
-  type: 'Publicidade' | 'Stand' | 'Institucional';
+  type: 'Publicidade' | 'Manutenção de Stand' | 'Institucional' | 'Produtos';
   category: ExpenseCategory;
   amount: number;
   description: string;
@@ -142,5 +156,14 @@ export interface TransactionLog {
   timestamp: string;
   oldAmount: number;
   newAmount: number;
+}
+
+export interface TimelineEvent {
+  id: string;
+  date: string; // YYYY-MM-DD
+  project: Project;
+  location: string;
+  action: string;
+  imageUrl?: string;
 }
 
