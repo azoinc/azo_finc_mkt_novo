@@ -169,10 +169,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTa
                 </select>
               </div>
             </div>
-            <div className="mt-6 text-center">
-              <p className="text-[10px] text-white/40 uppercase tracking-widest">Feito por</p>
-              <p className="text-xs font-medium text-white/60">Bruno "Tiffs" Mossato</p>
-            </div>
+            {/* Feito por Bruno "Tiffs" Mossato */}
           </div>
         </div>
       </nav>
