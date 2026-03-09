@@ -1,14 +1,14 @@
 import React, { useState, useRef } from 'react';
 import { useExpense } from '../context/ExpenseContext';
 import { useAuth } from '../context/AuthContext';
-import { PUBLICIDADE_CATEGORIES, STAND_CATEGORIES, INSTITUCIONAL_CATEGORIES, ExpenseCategory, ALL_PROJECTS, PROJECTS_BY_CITY, Project, City, Transaction } from '../types';
+import { PUBLICIDADE_CATEGORIES, MANUTENCAO_STAND_CATEGORIES, PRODUTOS_CATEGORIES, ExpenseCategory, ALL_PROJECTS, PROJECTS_BY_CITY, Project, City, Transaction } from '../types';
 import { formatCurrency, MONTHS } from '../utils';
 import { PlusCircle, Edit2, Check, X, Upload, Settings } from 'lucide-react';
 import * as xlsx from 'xlsx';
 import { BudgetModal } from '../components/BudgetModal';
 
 export default function DataEntry() {
-  const { selectedMonthId, currentMonthData, filteredTransactions, updateBudgetPublicidade, updateBudgetStand, updateBudgetInstitucional, setIsModalOpen, updateTransactionAmount, selectedProject, addTransactions } = useExpense();
+  const { selectedMonthId, currentMonthData, filteredTransactions, setIsModalOpen, updateTransactionAmount, selectedProject, addTransactions } = useExpense();
   const { userRole } = useAuth();
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editAmount, setEditAmount] = useState<string>('');
@@ -38,7 +38,7 @@ export default function DataEntry() {
     setEditingId(null);
   };
 
-  const currentMonthTransactions = filteredTransactions.filter(t => t.date.startsWith(selectedMonthId)).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  const currentMonthTransactions = filteredTransactions.filter(t => t.date.startsWith(selectedMonthId) && t.type !== 'Institucional').sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
   const normalizeString = (str: string) => str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
 
@@ -102,14 +102,14 @@ export default function DataEntry() {
         return { category: cat, type: 'Publicidade' };
       }
     }
-    for (const cat of STAND_CATEGORIES) {
+    for (const cat of MANUTENCAO_STAND_CATEGORIES) {
       if (normalized === normalizeString(cat) || normalized.includes(normalizeString(cat)) || normalizeString(cat).includes(normalized)) {
-        return { category: cat, type: 'Stand' };
+        return { category: cat, type: 'Manutenção de Stand' };
       }
     }
-    for (const cat of INSTITUCIONAL_CATEGORIES) {
+    for (const cat of PRODUTOS_CATEGORIES) {
       if (normalized === normalizeString(cat) || normalized.includes(normalizeString(cat)) || normalizeString(cat).includes(normalized)) {
-        return { category: cat, type: 'Institucional' };
+        return { category: cat, type: 'Produtos' };
       }
     }
     return null;
@@ -292,18 +292,18 @@ export default function DataEntry() {
             </div>
           </div>
           <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 border-t-4 border-t-indigo-500">
-            <h3 className="text-lg font-semibold text-slate-800 mb-4">Orçamento Stand - {selectedProject}</h3>
+            <h3 className="text-lg font-semibold text-slate-800 mb-4">Orçamento Manut. Stand - {selectedProject}</h3>
             <div className="max-w-xs">
               <p className="text-3xl font-bold text-slate-900">
                 {formatCurrency(currentMonthData.budgets[selectedProject]?.stand || 0)}
               </p>
             </div>
           </div>
-          <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 border-t-4 border-t-amber-500">
-            <h3 className="text-lg font-semibold text-slate-800 mb-4">Orçamento Institucional - {selectedProject}</h3>
+          <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 border-t-4 border-t-blue-500">
+            <h3 className="text-lg font-semibold text-slate-800 mb-4">Orçamento Produtos - {selectedProject}</h3>
             <div className="max-w-xs">
               <p className="text-3xl font-bold text-slate-900">
-                {formatCurrency(currentMonthData.budgets[selectedProject]?.institucional || 0)}
+                {formatCurrency(currentMonthData.budgets[selectedProject]?.produtos || 0)}
               </p>
             </div>
           </div>
@@ -335,13 +335,13 @@ export default function DataEntry() {
           </div>
         </div>
 
-        {/* Stand */}
+        {/* Manutenção de Stand */}
         <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden h-fit">
           <div className="bg-indigo-500 px-6 py-4">
-            <h3 className="text-lg font-bold text-white tracking-wide">BASAL STAND</h3>
+            <h3 className="text-lg font-bold text-white tracking-wide">BASAL MANUT. STAND</h3>
           </div>
           <div className="p-6 space-y-4">
-            {STAND_CATEGORIES.map(cat => {
+            {MANUTENCAO_STAND_CATEGORIES.map(cat => {
               const val = filteredTransactions.filter(t => t.date.startsWith(selectedMonthId) && t.category === cat).reduce((sum, t) => sum + t.amount, 0);
               if (val === 0) return null;
               return (
@@ -351,19 +351,19 @@ export default function DataEntry() {
                 </div>
               );
             })}
-            {STAND_CATEGORIES.every(cat => filteredTransactions.filter(t => t.date.startsWith(selectedMonthId) && t.category === cat).reduce((sum, t) => sum + t.amount, 0) === 0) && (
+            {MANUTENCAO_STAND_CATEGORIES.every(cat => filteredTransactions.filter(t => t.date.startsWith(selectedMonthId) && t.category === cat).reduce((sum, t) => sum + t.amount, 0) === 0) && (
               <p className="text-sm text-slate-500 italic">Nenhum lançamento neste mês.</p>
             )}
           </div>
         </div>
 
-        {/* Institucional */}
+        {/* Produtos */}
         <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden h-fit">
-          <div className="bg-amber-500 px-6 py-4">
-            <h3 className="text-lg font-bold text-white tracking-wide">BASAL INSTITUCIONAL</h3>
+          <div className="bg-blue-500 px-6 py-4">
+            <h3 className="text-lg font-bold text-white tracking-wide">BASAL PRODUTOS</h3>
           </div>
           <div className="p-6 space-y-4">
-            {INSTITUCIONAL_CATEGORIES.map(cat => {
+            {PRODUTOS_CATEGORIES.map(cat => {
               const val = filteredTransactions.filter(t => t.date.startsWith(selectedMonthId) && t.category === cat).reduce((sum, t) => sum + t.amount, 0);
               if (val === 0) return null;
               return (
@@ -373,7 +373,7 @@ export default function DataEntry() {
                 </div>
               );
             })}
-            {INSTITUCIONAL_CATEGORIES.every(cat => filteredTransactions.filter(t => t.date.startsWith(selectedMonthId) && t.category === cat).reduce((sum, t) => sum + t.amount, 0) === 0) && (
+            {PRODUTOS_CATEGORIES.every(cat => filteredTransactions.filter(t => t.date.startsWith(selectedMonthId) && t.category === cat).reduce((sum, t) => sum + t.amount, 0) === 0) && (
               <p className="text-sm text-slate-500 italic">Nenhum lançamento neste mês.</p>
             )}
           </div>
@@ -416,7 +416,7 @@ export default function DataEntry() {
                       <div className="text-xs text-slate-500">{t.city}</div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${t.type === 'Publicidade' ? 'bg-emerald-100 text-emerald-700' : t.type === 'Stand' ? 'bg-indigo-100 text-indigo-700' : 'bg-amber-100 text-amber-700'}`}>
+                      <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${t.type === 'Publicidade' ? 'bg-emerald-100 text-emerald-700' : t.type === 'Manutenção de Stand' ? 'bg-indigo-100 text-indigo-700' : t.type === 'Produtos' ? 'bg-blue-100 text-blue-700' : 'bg-amber-100 text-amber-700'}`}>
                         {t.type}
                       </span>
                     </td>
