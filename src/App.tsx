@@ -39,7 +39,7 @@ const AppContent = () => {
         {activeTab === 'timeline' && <Timeline />}
         {activeTab === 'admin' && userRole === 'MASTER' && <AdminPanel />}
       </Layout>
-      <TransactionModal />
+      <TransactionModal activeTab={activeTab} />
       <CommercialModal />
     </ExpenseProvider>
   );
