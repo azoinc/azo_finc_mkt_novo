@@ -3,7 +3,7 @@ import { useExpense } from '../context/ExpenseContext';
 import { PUBLICIDADE_CATEGORIES, MANUTENCAO_STAND_CATEGORIES, INSTITUCIONAL_CATEGORIES, PROJECTS_BY_CITY, ALL_PROJECTS } from '../types';
 import { formatCurrency, MONTHS } from '../utils';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid, Legend, ComposedChart, Line } from 'recharts';
-import { TrendingUp, TrendingDown, DollarSign, Target, PlusCircle, Users, ShoppingCart, Percent, Activity } from 'lucide-react';
+import { TrendingUp, TrendingDown, DollarSign, Target, Users, ShoppingCart, Percent, Activity } from 'lucide-react';
 
 const COLORS = ['#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#14b8a6', '#f97316', '#6366f1', '#84cc16'];
 
@@ -19,13 +19,9 @@ const PROJECT_COLORS: Record<string, string> = {
 };
 
 export default function Dashboard() {
-  const { data, currentMonthData, setIsModalOpen, selectedCity, selectedProject, filteredTransactions, transactions, timelineEvents, selectedMonthId } = useExpense();
+  const { data, currentMonthData, selectedCity, selectedProject, filteredTransactions, transactions, timelineEvents, selectedMonthId } = useExpense();
 
   if (!currentMonthData) return <div>Carregando...</div>;
-
-  const handleAddTransaction = () => {
-    setIsModalOpen(true);
-  };
 
   const totalPublicidade = PUBLICIDADE_CATEGORIES.reduce((acc, cat) => acc + filteredTransactions.filter(t => t.category === cat).reduce((sum, t) => sum + t.amount, 0), 0);
   const totalStand = MANUTENCAO_STAND_CATEGORIES.reduce((acc, cat) => acc + filteredTransactions.filter(t => t.category === cat).reduce((sum, t) => sum + t.amount, 0), 0);
@@ -173,13 +169,6 @@ export default function Dashboard() {
               </p>
             </div>
           </div>
-          <button
-            onClick={handleAddTransaction}
-            className="flex items-center space-x-2 px-4 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl shadow-sm transition-colors font-medium"
-          >
-            <PlusCircle size={20} />
-            <span>Novo Lançamento</span>
-          </button>
         </div>
       </header>
 
