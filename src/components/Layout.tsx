@@ -63,34 +63,38 @@ export const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTa
               <LayoutDashboard size={20} />
               <span className="font-medium">Dashboard</span>
             </button>
-            <button
-              onClick={() => { setActiveTab('entry'); setIsMobileMenuOpen(false); }}
-              className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl transition-all duration-200 ${activeTab === 'entry' ? 'bg-emerald-500 text-[#61072E] shadow-md shadow-emerald-500/20' : 'hover:bg-[#4a0523] text-white/70 hover:text-white'}`}
-            >
-              <Receipt size={20} />
-              <span className="font-medium">Lançamentos</span>
-            </button>
-            <button
-              onClick={() => { setActiveTab('commercial'); setIsMobileMenuOpen(false); }}
-              className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl transition-all duration-200 ${activeTab === 'commercial' ? 'bg-emerald-500 text-[#61072E] shadow-md shadow-emerald-500/20' : 'hover:bg-[#4a0523] text-white/70 hover:text-white'}`}
-            >
-              <TrendingUp size={20} />
-              <span className="font-medium">Comercial</span>
-            </button>
-            <button
-              onClick={() => { setActiveTab('institucional'); setIsMobileMenuOpen(false); }}
-              className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl transition-all duration-200 ${activeTab === 'institucional' ? 'bg-emerald-500 text-[#61072E] shadow-md shadow-emerald-500/20' : 'hover:bg-[#4a0523] text-white/70 hover:text-white'}`}
-            >
-              <Building2 size={20} />
-              <span className="font-medium">Institucional</span>
-            </button>
-            <button
-              onClick={() => { setActiveTab('timeline'); setIsMobileMenuOpen(false); }}
-              className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl transition-all duration-200 ${activeTab === 'timeline' ? 'bg-emerald-500 text-[#61072E] shadow-md shadow-emerald-500/20' : 'hover:bg-[#4a0523] text-white/70 hover:text-white'}`}
-            >
-              <TrendingUp size={20} />
-              <span className="font-medium">Timeline</span>
-            </button>
+            {userRole !== 'DIRETORIA' && (
+              <>
+                <button
+                  onClick={() => { setActiveTab('entry'); setIsMobileMenuOpen(false); }}
+                  className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl transition-all duration-200 ${activeTab === 'entry' ? 'bg-emerald-500 text-[#61072E] shadow-md shadow-emerald-500/20' : 'hover:bg-[#4a0523] text-white/70 hover:text-white'}`}
+                >
+                  <Receipt size={20} />
+                  <span className="font-medium">Lançamentos</span>
+                </button>
+                <button
+                  onClick={() => { setActiveTab('commercial'); setIsMobileMenuOpen(false); }}
+                  className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl transition-all duration-200 ${activeTab === 'commercial' ? 'bg-emerald-500 text-[#61072E] shadow-md shadow-emerald-500/20' : 'hover:bg-[#4a0523] text-white/70 hover:text-white'}`}
+                >
+                  <TrendingUp size={20} />
+                  <span className="font-medium">Comercial</span>
+                </button>
+                <button
+                  onClick={() => { setActiveTab('institucional'); setIsMobileMenuOpen(false); }}
+                  className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl transition-all duration-200 ${activeTab === 'institucional' ? 'bg-emerald-500 text-[#61072E] shadow-md shadow-emerald-500/20' : 'hover:bg-[#4a0523] text-white/70 hover:text-white'}`}
+                >
+                  <Building2 size={20} />
+                  <span className="font-medium">Institucional</span>
+                </button>
+                <button
+                  onClick={() => { setActiveTab('timeline'); setIsMobileMenuOpen(false); }}
+                  className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl transition-all duration-200 ${activeTab === 'timeline' ? 'bg-emerald-500 text-[#61072E] shadow-md shadow-emerald-500/20' : 'hover:bg-[#4a0523] text-white/70 hover:text-white'}`}
+                >
+                  <TrendingUp size={20} />
+                  <span className="font-medium">Timeline</span>
+                </button>
+              </>
+            )}
             {userRole === 'MASTER' && (
               <button
                 onClick={() => { setActiveTab('admin'); setIsMobileMenuOpen(false); }}
