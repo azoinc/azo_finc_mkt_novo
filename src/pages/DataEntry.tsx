@@ -244,7 +244,7 @@ export default function DataEntry() {
           </p>
         </div>
         <div className="flex items-center gap-3">
-          {(userRole === 'MASTER' || userRole === 'DIRETORIA') && (
+          {(userRole === 'MASTER' || userRole === 'ADMINISTRATIVO') && (
             <button
               onClick={() => setIsBudgetModalOpen(true)}
               className="flex items-center space-x-2 px-4 py-2.5 bg-slate-800 hover:bg-slate-900 text-white rounded-xl shadow-sm transition-colors font-medium w-fit"
