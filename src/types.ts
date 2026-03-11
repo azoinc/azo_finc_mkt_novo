@@ -101,6 +101,7 @@ export interface BaseCommercialRecord {
   project: Project;
   city: City;
   type: CommercialRecordType;
+  supabaseId?: string;
 }
 
 export interface SaleRecord extends BaseCommercialRecord {
