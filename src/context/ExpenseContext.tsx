@@ -363,13 +363,14 @@ export const ExpenseProvider: React.FC<{ children: React.ReactNode }> = ({ child
       if (error) throw error;
       if (!vendasData) return;
 
+      let finalRecords: CommercialRecord[] = [];
+      let hasChanges = false;
+      const seenSupabaseIds = new Set<string>();
+      const requiredMonths = new Set<{year: number, month: number}>();
+
       setCommercialRecords(prevRecords => {
         const newRecords = [...prevRecords];
-        let hasChanges = false;
         
-        // Track which supabase IDs we've seen to handle deletions
-        const seenSupabaseIds = new Set<string>();
-
         vendasData.forEach((venda: any) => {
           const supabaseId = venda.Id_vendas?.toString() || venda.id?.toString();
           if (!supabaseId) return;
@@ -388,6 +389,8 @@ export const ExpenseProvider: React.FC<{ children: React.ReactNode }> = ({ child
           const dateStr = `${year}-${month.toString().padStart(2, '0')}-01`;
           const city = getCityForProject(matchedProject);
           const vgvNominal = parseFloat(venda.valor_contrato) || 0;
+
+          requiredMonths.add({ year, month });
 
           const recordIndex = newRecords.findIndex(r => r.supabaseId === supabaseId);
           
@@ -427,9 +430,6 @@ export const ExpenseProvider: React.FC<{ children: React.ReactNode }> = ({ child
             newRecords.push(recordData);
             hasChanges = true;
           }
-          
-          // Ensure month exists
-          addMonth(year, month);
         });
 
         // Remove records that exist in Firebase with a supabaseId but are no longer in Supabase
@@ -441,47 +441,64 @@ export const ExpenseProvider: React.FC<{ children: React.ReactNode }> = ({ child
           return true;
         });
 
-        if (hasChanges) {
-          // Recalculate metrics for all months and projects
-          setData(prevData => {
-            return prevData.map(monthData => {
-              const monthRecords = filteredRecords.filter(r => r.date.startsWith(monthData.id));
-              
-              const newCommercial = { ...monthData.commercial };
-              
-              // Reset vendas and vgv for all projects in this month
-              Object.keys(newCommercial).forEach(proj => {
-                newCommercial[proj as Project] = {
-                  ...newCommercial[proj as Project],
-                  vendas: 0,
-                  vgv: 0
-                };
-              });
+        finalRecords = filteredRecords;
+        return hasChanges ? filteredRecords : prevRecords;
+      });
 
-              // Recalculate from records
-              monthRecords.forEach(record => {
-                if (record.type === 'venda') {
-                  const sale = record as SaleRecord;
-                  if (!newCommercial[sale.project]) {
-                    newCommercial[sale.project] = { leads: 0, vendas: 0, vgv: 0, visitasOn: 0, visitasOff: 0 };
-                  }
-                  newCommercial[sale.project].vendas += sale.qtde;
-                  newCommercial[sale.project].vgv += sale.vgvNominal;
-                }
+      if (hasChanges) {
+        // Recalculate metrics for all months and projects
+        setData(prevData => {
+          let newData = [...prevData];
+          
+          // Ensure all required months exist
+          requiredMonths.forEach(({year, month}) => {
+            const id = generateId(year, month);
+            if (!newData.find(m => m.id === id)) {
+              newData.push({
+                id,
+                year,
+                month,
+                budget: {},
+                commercial: {}
               });
-
-              return {
-                ...monthData,
-                commercial: newCommercial
-              };
-            });
+            }
           });
           
-          return filteredRecords;
-        }
-        
-        return prevRecords;
-      });
+          newData.sort((a, b) => b.id.localeCompare(a.id));
+
+          return newData.map(monthData => {
+            const monthRecords = finalRecords.filter(r => r.date.startsWith(monthData.id));
+            
+            const newCommercial = { ...monthData.commercial };
+            
+            // Reset vendas and vgv for all projects in this month
+            Object.keys(newCommercial).forEach(proj => {
+              newCommercial[proj as Project] = {
+                ...newCommercial[proj as Project],
+                vendas: 0,
+                vgv: 0
+              };
+            });
+
+            // Recalculate from records
+            monthRecords.forEach(record => {
+              if (record.type === 'venda') {
+                const sale = record as SaleRecord;
+                if (!newCommercial[sale.project]) {
+                  newCommercial[sale.project] = { leads: 0, vendas: 0, vgv: 0, visitasOn: 0, visitasOff: 0 };
+                }
+                newCommercial[sale.project].vendas += sale.qtde;
+                newCommercial[sale.project].vgv += sale.vgvNominal;
+              }
+            });
+
+            return {
+              ...monthData,
+              commercial: newCommercial
+            };
+          });
+        });
+      }
 
     } catch (error) {
       console.error('Error syncing Supabase data:', error);
