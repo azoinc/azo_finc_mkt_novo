@@ -3,6 +3,8 @@ import { MonthData, ExpenseCategory, PUBLICIDADE_CATEGORIES, MANUTENCAO_STAND_CA
 import { useAuth } from './AuthContext';
 import { db } from '../services/firebase';
 import { doc, getDoc, setDoc, onSnapshot } from 'firebase/firestore';
+import { supabase } from '../lib/supabase';
+import { matchProject, getCityForProject } from '../utils';
 
 interface ExpenseContextType {
   data: MonthData[];
@@ -10,7 +12,7 @@ interface ExpenseContextType {
   setSelectedMonthId: (id: string) => void;
   updateBudget: (project: Project, budget: Partial<ProjectBudget>) => void;
   updateCommercialData: (project: Project, data: Partial<CommercialMetrics>, monthId?: string) => void;
-  addCommercialMetrics: (project: Project, metrics: { vendas: number, vgv: number }, monthId: string) => void;
+  addCommercialMetrics: (project: Project, metrics: Partial<CommercialMetrics>, monthId: string) => void;
   addMonth: (year: number, month: number) => void;
   currentMonthData: MonthData | undefined;
   transactions: Transaction[];
@@ -36,6 +38,7 @@ interface ExpenseContextType {
   timelineEvents: TimelineEvent[];
   addTimelineEvent: (event: Omit<TimelineEvent, 'id'>) => void;
   deleteTimelineEvent: (id: string) => void;
+  syncSupabaseData: () => Promise<void>;
 }
 
 const ExpenseContext = createContext<ExpenseContextType | undefined>(undefined);
@@ -276,18 +279,21 @@ export const ExpenseProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }));
   };
 
-  const addCommercialMetrics = (project: Project, metrics: { vendas: number, vgv: number }, monthId: string) => {
+  const addCommercialMetrics = (project: Project, metrics: Partial<CommercialMetrics>, monthId: string) => {
     setData(prev => prev.map(m => {
       if (m.id === monthId) {
-        const currentCommercial = m.commercial[project] || { leads: 0, vendas: 0, vgv: 0 };
+        const currentCommercial = m.commercial[project] || { leads: 0, vendas: 0, vgv: 0, visitasOn: 0, visitasOff: 0 };
         return {
           ...m,
           commercial: {
             ...m.commercial,
             [project]: { 
               ...currentCommercial, 
-              vendas: currentCommercial.vendas + metrics.vendas,
-              vgv: currentCommercial.vgv + metrics.vgv
+              vendas: currentCommercial.vendas + (metrics.vendas || 0),
+              vgv: currentCommercial.vgv + (metrics.vgv || 0),
+              leads: currentCommercial.leads + (metrics.leads || 0),
+              visitasOn: currentCommercial.visitasOn + (metrics.visitasOn || 0),
+              visitasOff: currentCommercial.visitasOff + (metrics.visitasOff || 0)
             }
           }
         };
@@ -343,13 +349,160 @@ export const ExpenseProvider: React.FC<{ children: React.ReactNode }> = ({ child
     setTimelineEvents(prev => prev.filter(e => e.id !== id));
   };
 
+  const syncSupabaseData = async () => {
+    if (!supabase) {
+      console.warn('Supabase não está configurado.');
+      return;
+    }
+
+    try {
+      const { data: vendasData, error } = await supabase
+        .from('vendas')
+        .select('*');
+
+      if (error) throw error;
+      if (!vendasData) return;
+
+      setCommercialRecords(prevRecords => {
+        const newRecords = [...prevRecords];
+        let hasChanges = false;
+        
+        // Track which supabase IDs we've seen to handle deletions
+        const seenSupabaseIds = new Set<string>();
+
+        vendasData.forEach((venda: any) => {
+          const supabaseId = venda.Id_vendas?.toString() || venda.id?.toString();
+          if (!supabaseId) return;
+          
+          seenSupabaseIds.add(supabaseId);
+
+          const projName = venda.empreendimento || '';
+          const matchedProject = matchProject(projName);
+          if (!matchedProject) return;
+
+          const dateObj = new Date(venda.data_venda);
+          if (isNaN(dateObj.getTime())) return;
+
+          const year = dateObj.getFullYear();
+          const month = dateObj.getMonth() + 1;
+          const dateStr = `${year}-${month.toString().padStart(2, '0')}-01`;
+          const city = getCityForProject(matchedProject);
+          const vgvNominal = parseFloat(venda.valor_contrato) || 0;
+
+          const recordIndex = newRecords.findIndex(r => r.supabaseId === supabaseId);
+          
+          const recordData: CommercialRecord = {
+            id: recordIndex >= 0 ? newRecords[recordIndex].id : crypto.randomUUID(),
+            supabaseId,
+            date: dateStr,
+            city,
+            project: matchedProject,
+            type: 'venda',
+            vendas: '1',
+            qtde: 1,
+            unidade: venda.unidade || '',
+            vgvNominal,
+            vgvVp: vgvNominal,
+            ev: 0,
+            origem: venda.imobiliaria || '',
+            status1: venda.status || '',
+            status2: venda.corretor || ''
+          } as SaleRecord;
+
+          if (recordIndex >= 0) {
+            // Check if it changed
+            const existing = newRecords[recordIndex] as SaleRecord;
+            if (
+              existing.project !== recordData.project ||
+              existing.date !== recordData.date ||
+              existing.vgvNominal !== (recordData as SaleRecord).vgvNominal ||
+              existing.unidade !== (recordData as SaleRecord).unidade ||
+              existing.status1 !== (recordData as SaleRecord).status1
+            ) {
+              newRecords[recordIndex] = recordData;
+              hasChanges = true;
+            }
+          } else {
+            // Add new
+            newRecords.push(recordData);
+            hasChanges = true;
+          }
+          
+          // Ensure month exists
+          addMonth(year, month);
+        });
+
+        // Remove records that exist in Firebase with a supabaseId but are no longer in Supabase
+        const filteredRecords = newRecords.filter(r => {
+          if (r.supabaseId && !seenSupabaseIds.has(r.supabaseId)) {
+            hasChanges = true;
+            return false;
+          }
+          return true;
+        });
+
+        if (hasChanges) {
+          // Recalculate metrics for all months and projects
+          setData(prevData => {
+            return prevData.map(monthData => {
+              const monthRecords = filteredRecords.filter(r => r.date.startsWith(monthData.id));
+              
+              const newCommercial = { ...monthData.commercial };
+              
+              // Reset vendas and vgv for all projects in this month
+              Object.keys(newCommercial).forEach(proj => {
+                newCommercial[proj as Project] = {
+                  ...newCommercial[proj as Project],
+                  vendas: 0,
+                  vgv: 0
+                };
+              });
+
+              // Recalculate from records
+              monthRecords.forEach(record => {
+                if (record.type === 'venda') {
+                  const sale = record as SaleRecord;
+                  if (!newCommercial[sale.project]) {
+                    newCommercial[sale.project] = { leads: 0, vendas: 0, vgv: 0, visitasOn: 0, visitasOff: 0 };
+                  }
+                  newCommercial[sale.project].vendas += sale.qtde;
+                  newCommercial[sale.project].vgv += sale.vgvNominal;
+                }
+              });
+
+              return {
+                ...monthData,
+                commercial: newCommercial
+              };
+            });
+          });
+          
+          return filteredRecords;
+        }
+        
+        return prevRecords;
+      });
+
+    } catch (error) {
+      console.error('Error syncing Supabase data:', error);
+      throw error;
+    }
+  };
+
+  // Run initial sync on load
+  useEffect(() => {
+    if (isLoaded && user) {
+      syncSupabaseData().catch(console.error);
+    }
+  }, [isLoaded, user]);
+
   return (
     <ExpenseContext.Provider value={{ 
       data, selectedMonthId, setSelectedMonthId, updateBudget, updateCommercialData, addCommercialMetrics, addMonth, currentMonthData,
       transactions, filteredTransactions, logs, addTransaction, addTransactions, updateTransactionAmount, isModalOpen, setIsModalOpen,
       commercialRecords, filteredCommercialRecords, addCommercialRecord, addCommercialRecords, deleteCommercialRecord, isCommercialModalOpen, setIsCommercialModalOpen,
       userRole, selectedCity, setSelectedCity, selectedProject, setSelectedProject,
-      timelineEvents, addTimelineEvent, deleteTimelineEvent
+      timelineEvents, addTimelineEvent, deleteTimelineEvent, syncSupabaseData
     }}>
       {children}
     </ExpenseContext.Provider>
