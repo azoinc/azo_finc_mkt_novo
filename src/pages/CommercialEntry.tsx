@@ -1,31 +1,16 @@
-import React, { useRef } from 'react';
-import { PlusCircle, Trash2, Upload } from 'lucide-react';
+import React, { useRef, useState } from 'react';
+import { PlusCircle, Trash2, Upload, Database, Loader2 } from 'lucide-react';
 import * as xlsx from 'xlsx';
 import { useExpense } from '../context/ExpenseContext';
-import { MONTHS, formatCurrency } from '../utils';
+import { MONTHS, formatCurrency, matchProject, getCityForProject } from '../utils';
 import { Project, SaleRecord, PipelineRecord, City, PROJECTS_BY_CITY, CommercialRecord } from '../types';
+import { supabase } from '../lib/supabase';
 
 export default function CommercialEntry() {
-  const { data, currentMonthData, selectedProject, updateCommercialData, addCommercialMetrics, setIsCommercialModalOpen, filteredCommercialRecords, deleteCommercialRecord, addCommercialRecords, addMonth } = useExpense();
+  const { data, currentMonthData, selectedProject, updateCommercialData, addCommercialMetrics, setIsCommercialModalOpen, filteredCommercialRecords, deleteCommercialRecord, addCommercialRecords, addMonth, syncSupabaseData } = useExpense();
   
   const fileInputRef = useRef<HTMLInputElement>(null);
-
-  const matchProject = (name: string): Project | null => {
-    const n = name.toLowerCase().trim();
-    if (n.includes('natus')) return 'Natus';
-    if (n.includes('ares')) return 'Ares';
-    if (n.includes('verter') || n.includes('cambu')) return 'Verter';
-    if (n.includes('mata')) return 'Casa da Mata';
-    if (n.includes('insigna')) return 'Insigna';
-    if (n.includes('noite')) return 'A Noite';
-    if (n.includes('gávea') || n.includes('gvea') || n.includes('gavea')) return 'Gávea';
-    if (n.includes('ipanema') || n.includes('ar ip')) return 'Ipanema';
-    return null;
-  };
-
-  const getCityForProject = (p: Project): City => {
-    return PROJECTS_BY_CITY['Rio de Janeiro'].includes(p) ? 'Rio de Janeiro' : 'Campinas';
-  };
+  const [isSyncing, setIsSyncing] = useState(false);
 
   const parseSheetName = (sheetName: string): { month: number, year: number } | null => {
     // Try to find a 4-digit year
@@ -48,6 +33,17 @@ export default function CommercialEntry() {
       }
     }
 
+    return null;
+  };
+
+  const parseMonthFromName = (name: string): number | null => {
+    const months = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
+    const lowerName = name.toLowerCase().trim();
+    for (let i = 0; i < months.length; i++) {
+      if (lowerName === months[i] || lowerName.startsWith(months[i].substring(0, 3))) {
+        return i + 1;
+      }
+    }
     return null;
   };
 
@@ -97,15 +93,29 @@ export default function CommercialEntry() {
     }
   };
 
-  const parseCSV = (text: string, year: number, month: number): number => {
+  const parseCSV = (text: string, defaultYear: number, defaultMonth: number): number => {
     const lines = text.split('\n').map(l => l.trim());
     let currentSection = '';
     let currentProject: Project | null = null;
     
+    let year = defaultYear;
+    let month = defaultMonth;
+
     const newRecords: Omit<CommercialRecord, 'id'>[] = [];
-    const projectMetrics: Partial<Record<Project, { vendas: number, vgv: number }>> = {};
+    const projectMetrics: Partial<Record<Project, { vendas: number, vgv: number, leads: number, visitasOn: number, visitasOff: number }>> = {};
     
-    // Use the 1st of the month for the record date if we extracted it from the sheet name
+    // Check the first few lines for the month name (e.g., "Relatório comercial: Fevereiro")
+    for (let i = 0; i < Math.min(10, lines.length); i++) {
+      const cols = lines[i].split(';').map(c => c.trim());
+      if (cols[0]?.toLowerCase().includes('relatório comercial:') || cols[0]?.toLowerCase() === 'relatório comercial:') {
+        const monthStr = cols[1] || cols[0].split(':')[1]?.trim();
+        if (monthStr) {
+          const parsedMonth = parseMonthFromName(monthStr);
+          if (parsedMonth) month = parsedMonth;
+        }
+      }
+    }
+
     const dateStr = `${year}-${month.toString().padStart(2, '0')}-01`;
     const targetMonthId = `${year}-${month.toString().padStart(2, '0')}`;
 
@@ -115,34 +125,64 @@ export default function CommercialEntry() {
       
       if (cols.length < 2) continue;
 
-      if (cols[1] === 'Vendas' && cols[2] === 'Qtde') {
+      if (cols[0] === 'Vendas' && cols[1] === 'Qtde') {
         currentSection = 'Vendas';
         continue;
       }
-      if (cols[1] === 'Pipeline' && cols[2] === 'Qtde Tratativas') {
+      if (cols[0] === 'Pipeline' && cols[1] === 'Qtde Tratativas') {
         currentSection = 'Pipeline';
         continue;
       }
-      if (cols[1] === 'Resumo comercial') {
-        currentSection = 'Resumo';
-        continue;
-      }
-      if (cols[0] === 'Visitas PDV' || cols[1] === 'Visitas PDV') {
+      if (cols[0] === 'Visitas PDV' || cols[0].includes('Visitas PDV')) {
         currentSection = 'Visitas';
         continue;
       }
-      if (cols[0] === 'Leads' || cols[1] === 'Leads') {
+      if (cols[0] === 'Leads' || cols[0].includes('Leads')) {
         currentSection = 'Leads';
         continue;
       }
 
-      if (currentSection === 'Vendas' || currentSection === 'Pipeline') {
-        let projCol = cols[1];
-        if (!projCol && cols[0] && !cols[0].toLowerCase().startsWith('total')) {
-          projCol = cols[0];
+      const parseNumber = (val: string) => {
+        if (!val || val === '-') return 0;
+        const num = parseInt(val.replace(/\D/g, ''));
+        return isNaN(num) ? 0 : num;
+      };
+
+      if (currentSection === 'Visitas') {
+        let projCol = cols[0];
+        if (projCol && !projCol.toLowerCase().startsWith('total') && projCol !== '-' && projCol !== '') {
+          const matched = matchProject(projCol);
+          if (matched) {
+            if (!projectMetrics[matched]) projectMetrics[matched] = { vendas: 0, vgv: 0, leads: 0, visitasOn: 0, visitasOff: 0 };
+            
+            // Assuming cols[1] is Indicação IVS, cols[2] is Espontânea, cols[3] is Parceria, cols[4] is On-line
+            const visitasOff = parseNumber(cols[1]) + parseNumber(cols[2]) + parseNumber(cols[3]);
+            const visitasOn = parseNumber(cols[4]);
+            
+            projectMetrics[matched]!.visitasOff += visitasOff;
+            projectMetrics[matched]!.visitasOn += visitasOn;
+          }
         }
+      }
+
+      if (currentSection === 'Leads') {
+        let projCol = cols[0];
+        if (projCol && !projCol.toLowerCase().startsWith('total') && projCol !== '-' && projCol !== '') {
+          const matched = matchProject(projCol);
+          if (matched) {
+            if (!projectMetrics[matched]) projectMetrics[matched] = { vendas: 0, vgv: 0, leads: 0, visitasOn: 0, visitasOff: 0 };
+            
+            // Assuming cols[1] is Descartado, cols[2] is Em Atendimento, cols[3] is Visita Realizada, cols[4] is Atendimento SDR
+            const leads = parseNumber(cols[1]) + parseNumber(cols[2]) + parseNumber(cols[3]) + parseNumber(cols[4]);
+            projectMetrics[matched]!.leads += leads;
+          }
+        }
+      }
+
+      if (currentSection === 'Vendas' || currentSection === 'Pipeline') {
+        let projCol = cols[0];
         
-        if (projCol && !projCol.toLowerCase().startsWith('total') && projCol !== '-') {
+        if (projCol && !projCol.toLowerCase().startsWith('total') && projCol !== '-' && projCol !== '') {
           const matched = matchProject(projCol);
           if (matched) currentProject = matched;
         }
@@ -151,7 +191,7 @@ export default function CommercialEntry() {
           continue;
         }
 
-        const qtde = parseInt(cols[2]);
+        const qtde = parseInt(cols[1]);
         if (!isNaN(qtde) && qtde > 0 && currentProject) {
           const city = getCityForProject(currentProject);
           
@@ -166,7 +206,7 @@ export default function CommercialEntry() {
           };
 
           if (currentSection === 'Vendas') {
-            const vgvNominal = parseCurrency(cols[4]);
+            const vgvNominal = parseCurrency(cols[3]);
             newRecords.push({
               date: dateStr,
               city,
@@ -174,13 +214,13 @@ export default function CommercialEntry() {
               type: 'venda',
               vendas: '1',
               qtde: qtde,
-              unidade: cols[3],
+              unidade: cols[2],
               vgvNominal,
-              vgvVp: parseCurrency(cols[5]),
-              ev: parseCurrency(cols[6]),
-              origem: cols[7],
-              status1: cols[8],
-              status2: cols[9] || ''
+              vgvVp: parseCurrency(cols[4]),
+              ev: parseCurrency(cols[5]),
+              origem: cols[6],
+              status1: cols[7],
+              status2: cols[8] || ''
             } as SaleRecord);
 
             if (!projectMetrics[currentProject]) {
@@ -196,29 +236,44 @@ export default function CommercialEntry() {
               type: 'pipeline',
               pipeline: '1',
               qtdeTratativas: qtde,
-              unidade: cols[3],
-              propostaNegociada: cols[4] || '',
-              propostaVgvNominal: parseCurrency(cols[5]),
-              imobiliaria: cols[6] || '',
-              origem: cols[7] || '',
-              status: cols[8] || '',
-              descritivo: cols[9] || ''
+              unidade: cols[2],
+              propostaNegociada: cols[3] || '',
+              propostaVgvNominal: parseCurrency(cols[4]),
+              imobiliaria: cols[5] || '',
+              origem: cols[6] || '',
+              status: cols[7] || '',
+              descritivo: cols[8] || ''
             } as PipelineRecord);
           }
         }
       }
     }
 
-    if (newRecords.length > 0) {
+    if (newRecords.length > 0 || Object.keys(projectMetrics).length > 0) {
       addMonth(year, month);
-      addCommercialRecords(newRecords);
+      if (newRecords.length > 0) {
+        addCommercialRecords(newRecords);
+      }
       
       Object.entries(projectMetrics).forEach(([proj, metrics]) => {
         addCommercialMetrics(proj as Project, metrics, targetMonthId);
       });
     }
     
-    return newRecords.length;
+    return newRecords.length + Object.keys(projectMetrics).length;
+  };
+
+  const handleSupabaseSync = async () => {
+    setIsSyncing(true);
+    try {
+      await syncSupabaseData();
+      alert('Sincronização com Supabase concluída com sucesso!');
+    } catch (error) {
+      console.error('Erro ao sincronizar com Supabase:', error);
+      alert('Erro ao sincronizar com Supabase. Verifique o console para mais detalhes.');
+    } finally {
+      setIsSyncing(false);
+    }
   };
 
   if (!currentMonthData) return <div>Carregando...</div>;
@@ -243,6 +298,14 @@ export default function CommercialEntry() {
           </p>
         </div>
         <div className="flex items-center space-x-3">
+          <button
+            onClick={handleSupabaseSync}
+            disabled={isSyncing}
+            className="flex items-center space-x-2 px-4 py-2.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-xl shadow-sm transition-colors font-medium disabled:opacity-50"
+          >
+            {isSyncing ? <Loader2 size={20} className="animate-spin" /> : <Database size={20} />}
+            <span>{isSyncing ? 'Sincronizando...' : 'Sincronizar Supabase'}</span>
+          </button>
           <input
             type="file"
             accept=".csv,.xlsx,.xls"
