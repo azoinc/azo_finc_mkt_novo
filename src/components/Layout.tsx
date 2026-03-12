@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { LayoutDashboard, Receipt, Menu, X, Building2, MapPin, UserCircle, TrendingUp, LogOut, ShieldAlert } from 'lucide-react';
+import { LayoutDashboard, Receipt, Menu, X, Building2, MapPin, UserCircle, TrendingUp, LogOut, ShieldAlert, ArrowLeft } from 'lucide-react';
 import { useExpense } from '../context/ExpenseContext';
 import { useAuth } from '../context/AuthContext';
 import { MONTHS } from '../utils';
@@ -9,9 +9,10 @@ interface LayoutProps {
   children: React.ReactNode;
   activeTab: 'dashboard' | 'entry' | 'commercial' | 'institucional' | 'timeline' | 'admin';
   setActiveTab: (tab: 'dashboard' | 'entry' | 'commercial' | 'institucional' | 'timeline' | 'admin') => void;
+  onBackToSelection?: () => void;
 }
 
-export const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab }) => {
+export const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab, onBackToSelection }) => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const { 
     data, selectedMonthId, setSelectedMonthId, currentMonthData,
@@ -29,6 +30,15 @@ export const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTa
       <nav className="bg-[#61072E] text-white w-full md:w-64 flex-shrink-0 md:h-screen sticky top-0 z-50 flex flex-col shadow-xl">
         <div className="p-5 flex items-center justify-between md:justify-center border-b border-[#4a0523]">
           <div className="flex items-center space-x-2">
+            {onBackToSelection && (
+              <button 
+                onClick={onBackToSelection}
+                className="p-1.5 mr-2 bg-[#4a0523] hover:bg-rose-900/50 text-white/70 hover:text-white rounded-lg transition-colors"
+                title="Voltar para seleção de dashboard"
+              >
+                <ArrowLeft size={18} />
+              </button>
+            )}
             <div className="w-8 h-8 bg-emerald-500 rounded-lg flex items-center justify-center font-bold text-[#61072E]">A</div>
             <h1 className="text-xl font-bold tracking-tight text-white">Dashboard - Marketing Azo</h1>
           </div>
