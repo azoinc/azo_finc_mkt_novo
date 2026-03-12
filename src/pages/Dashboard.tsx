@@ -1,459 +1,484 @@
-import React from 'react';
+import React, { useRef, useState } from 'react';
+import { PlusCircle, Trash2, Upload, Database, Loader2 } from 'lucide-react';
+import * as xlsx from 'xlsx';
 import { useExpense } from '../context/ExpenseContext';
-import { PUBLICIDADE_CATEGORIES, MANUTENCAO_STAND_CATEGORIES, INSTITUCIONAL_CATEGORIES, PROJECTS_BY_CITY, ALL_PROJECTS } from '../types';
-import { formatCurrency, MONTHS } from '../utils';
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid, Legend, ComposedChart, Line } from 'recharts';
-import { TrendingUp, TrendingDown, DollarSign, Target, Users, ShoppingCart, Percent, Activity } from 'lucide-react';
+import { MONTHS, formatCurrency, matchProject, getCityForProject } from '../utils';
+import { Project, SaleRecord, PipelineRecord, City, PROJECTS_BY_CITY, CommercialRecord } from '../types';
+import { supabase } from '../lib/supabase';
 
-const COLORS = ['#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#14b8a6', '#f97316', '#6366f1', '#84cc16'];
+export default function CommercialEntry() {
+  const { data, currentMonthData, selectedProject, updateCommercialData, addCommercialMetrics, setIsCommercialModalOpen, filteredCommercialRecords, deleteCommercialRecord, addCommercialRecords, addMonth, syncSupabaseData } = useExpense();
+  
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [isSyncing, setIsSyncing] = useState(false);
 
-const PROJECT_COLORS: Record<string, string> = {
-  'Gávea': 'bg-emerald-500',
-  'Ipanema': 'bg-blue-500',
-  'Insigna': 'bg-amber-500',
-  'A Noite': 'bg-rose-500',
-  'Ares': 'bg-indigo-500',
-  'Verter': 'bg-purple-500',
-  'Casa da Mata': 'bg-pink-500',
-  'Natus': 'bg-cyan-500'
-};
+  const parseSheetName = (sheetName: string): { month: number, year: number } | null => {
+    // Try to find a 4-digit year
+    const yearMatch = sheetName.match(/\b(20\d{2})\b/);
+    if (!yearMatch) return null;
+    const year = parseInt(yearMatch[1]);
 
-export default function Dashboard() {
-  const { data, currentMonthData, selectedCity, selectedProject, filteredTransactions, transactions, timelineEvents, selectedMonthId } = useExpense();
+    // Try to find month by number (01-12)
+    const monthNumMatch = sheetName.match(/\b(0?[1-9]|1[0-2])\b/);
+    if (monthNumMatch && monthNumMatch[1] !== yearMatch[1]) {
+      return { month: parseInt(monthNumMatch[1]), year };
+    }
+
+    // Try to find month by name (Portuguese)
+    const months = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
+    const lowerName = sheetName.toLowerCase();
+    for (let i = 0; i < months.length; i++) {
+      if (lowerName.includes(months[i])) {
+        return { month: i + 1, year };
+      }
+    }
+
+    return null;
+  };
+
+  const parseMonthFromName = (name: string): number | null => {
+    const months = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
+    const lowerName = name.toLowerCase().trim();
+    for (let i = 0; i < months.length; i++) {
+      if (lowerName === months[i] || lowerName.startsWith(months[i].substring(0, 3))) {
+        return i + 1;
+      }
+    }
+    return null;
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const fileDate = new Date(file.lastModified);
+    const now = new Date();
+    const safeDate = fileDate > now ? now : fileDate;
+
+    try {
+      const buffer = await file.arrayBuffer();
+      const workbook = xlsx.read(buffer, { type: 'array' });
+      
+      let totalImported = 0;
+
+      for (const sheetName of workbook.SheetNames) {
+        const sheet = workbook.Sheets[sheetName];
+        const csvText = xlsx.utils.sheet_to_csv(sheet, { FS: ';' });
+        
+        let year = safeDate.getFullYear();
+        let month = safeDate.getMonth() + 1;
+        
+        const parsedDate = parseSheetName(sheetName);
+        if (parsedDate) {
+          year = parsedDate.year;
+          month = parsedDate.month;
+        }
+        
+        const importedCount = parseCSV(csvText, year, month);
+        totalImported += importedCount;
+      }
+
+      if (totalImported > 0) {
+        alert(`${totalImported} lançamentos importados com sucesso de todas as abas!`);
+      } else {
+        alert('Nenhum lançamento válido encontrado no arquivo.');
+      }
+    } catch (error) {
+      console.error('Error parsing file:', error);
+      alert('Erro ao ler o arquivo. Certifique-se de que é um arquivo Excel ou CSV válido.');
+    }
+    
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  const parseCSV = (text: string, defaultYear: number, defaultMonth: number): number => {
+    const lines = text.split('\n').map(l => l.trim());
+    let currentSection = '';
+    let currentProject: Project | null = null;
+    
+    let year = defaultYear;
+    let month = defaultMonth;
+
+    const newRecords: Omit<CommercialRecord, 'id'>[] = [];
+    const projectMetrics: Partial<Record<Project, { vendas: number, vgv: number, leads: number, visitasOn: number, visitasOff: number }>> = {};
+    
+    // Check the first few lines for the month name (e.g., "Relatório comercial: Fevereiro")
+    for (let i = 0; i < Math.min(10, lines.length); i++) {
+      const cols = lines[i].split(';').map(c => c.trim());
+      if (cols[0]?.toLowerCase().includes('relatório comercial:') || cols[0]?.toLowerCase() === 'relatório comercial:') {
+        const monthStr = cols[1] || cols[0].split(':')[1]?.trim();
+        if (monthStr) {
+          const parsedMonth = parseMonthFromName(monthStr);
+          if (parsedMonth) month = parsedMonth;
+        }
+      }
+    }
+
+    const dateStr = `${year}-${month.toString().padStart(2, '0')}-01`;
+    const targetMonthId = `${year}-${month.toString().padStart(2, '0')}`;
+
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      const cols = line.split(';').map(c => c.trim());
+      
+      if (cols.length < 2) continue;
+
+      if (cols[0] === 'Vendas' && cols[1] === 'Qtde') {
+        currentSection = 'Vendas';
+        continue;
+      }
+      if (cols[0] === 'Pipeline' && cols[1] === 'Qtde Tratativas') {
+        currentSection = 'Pipeline';
+        continue;
+      }
+      if (cols[0] === 'Visitas PDV' || cols[0].includes('Visitas PDV')) {
+        currentSection = 'Visitas';
+        continue;
+      }
+      if (cols[0] === 'Leads' || cols[0].includes('Leads')) {
+        currentSection = 'Leads';
+        continue;
+      }
+
+      const parseNumber = (val: string) => {
+        if (!val || val === '-') return 0;
+        const num = parseInt(val.replace(/\D/g, ''));
+        return isNaN(num) ? 0 : num;
+      };
+
+      if (currentSection === 'Visitas') {
+        let projCol = cols[0];
+        if (projCol && !projCol.toLowerCase().startsWith('total') && projCol !== '-' && projCol !== '') {
+          const matched = matchProject(projCol);
+          if (matched) {
+            if (!projectMetrics[matched]) projectMetrics[matched] = { vendas: 0, vgv: 0, leads: 0, visitasOn: 0, visitasOff: 0 };
+            
+            // Assuming cols[1] is Indicação IVS, cols[2] is Espontânea, cols[3] is Parceria, cols[4] is On-line
+            const visitasOff = parseNumber(cols[1]) + parseNumber(cols[2]) + parseNumber(cols[3]);
+            const visitasOn = parseNumber(cols[4]);
+            
+            projectMetrics[matched]!.visitasOff += visitasOff;
+            projectMetrics[matched]!.visitasOn += visitasOn;
+          }
+        }
+      }
+
+      if (currentSection === 'Leads') {
+        let projCol = cols[0];
+        if (projCol && !projCol.toLowerCase().startsWith('total') && projCol !== '-' && projCol !== '') {
+          const matched = matchProject(projCol);
+          if (matched) {
+            if (!projectMetrics[matched]) projectMetrics[matched] = { vendas: 0, vgv: 0, leads: 0, visitasOn: 0, visitasOff: 0 };
+            
+            // Assuming cols[1] is Descartado, cols[2] is Em Atendimento, cols[3] is Visita Realizada, cols[4] is Atendimento SDR
+            const leads = parseNumber(cols[1]) + parseNumber(cols[2]) + parseNumber(cols[3]) + parseNumber(cols[4]);
+            projectMetrics[matched]!.leads += leads;
+          }
+        }
+      }
+
+      if (currentSection === 'Vendas' || currentSection === 'Pipeline') {
+        let projCol = cols[0];
+        
+        if (projCol && !projCol.toLowerCase().startsWith('total') && projCol !== '-' && projCol !== '') {
+          const matched = matchProject(projCol);
+          if (matched) currentProject = matched;
+        }
+        
+        if (cols[0].toLowerCase().startsWith('total') || (cols[1] && cols[1].toLowerCase().startsWith('total'))) {
+          continue;
+        }
+
+        const qtde = parseInt(cols[1]);
+        if (!isNaN(qtde) && qtde > 0 && currentProject) {
+          const city = getCityForProject(currentProject);
+          
+          const parseCurrency = (val: string) => {
+            if (!val || val === '-') return 0;
+            let cleaned = val.replace(/R\$/g, '').trim();
+            if (cleaned.includes(',')) {
+              cleaned = cleaned.replace(/\./g, '').replace(/,/g, '.');
+            }
+            const num = parseFloat(cleaned);
+            return isNaN(num) ? 0 : num;
+          };
+
+          if (currentSection === 'Vendas') {
+            const vgvNominal = parseCurrency(cols[3]);
+            newRecords.push({
+              date: dateStr,
+              city,
+              project: currentProject,
+              type: 'venda',
+              vendas: '1',
+              qtde: qtde,
+              unidade: cols[2],
+              vgvNominal,
+              vgvVp: parseCurrency(cols[4]),
+              ev: parseCurrency(cols[5]),
+              origem: cols[6],
+              status1: cols[7],
+              status2: cols[8] || ''
+            } as SaleRecord);
+
+            if (!projectMetrics[currentProject]) {
+              projectMetrics[currentProject] = { vendas: 0, vgv: 0 };
+            }
+            projectMetrics[currentProject]!.vendas += qtde;
+            projectMetrics[currentProject]!.vgv += vgvNominal;
+          } else {
+            newRecords.push({
+              date: dateStr,
+              city,
+              project: currentProject,
+              type: 'pipeline',
+              pipeline: '1',
+              qtdeTratativas: qtde,
+              unidade: cols[2],
+              propostaNegociada: cols[3] || '',
+              propostaVgvNominal: parseCurrency(cols[4]),
+              imobiliaria: cols[5] || '',
+              origem: cols[6] || '',
+              status: cols[7] || '',
+              descritivo: cols[8] || ''
+            } as PipelineRecord);
+          }
+        }
+      }
+    }
+
+    if (newRecords.length > 0 || Object.keys(projectMetrics).length > 0) {
+      addMonth(year, month);
+      if (newRecords.length > 0) {
+        addCommercialRecords(newRecords);
+      }
+      
+      Object.entries(projectMetrics).forEach(([proj, metrics]) => {
+        addCommercialMetrics(proj as Project, metrics, targetMonthId);
+      });
+    }
+    
+    return newRecords.length + Object.keys(projectMetrics).length;
+  };
+
+  const handleSupabaseSync = async () => {
+    if (!supabase) {
+      alert('Supabase não está configurado. Verifique as variáveis de ambiente VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY no arquivo .env');
+      return;
+    }
+
+    setIsSyncing(true);
+    try {
+      await syncSupabaseData();
+      alert('Sincronização com Supabase concluída com sucesso!');
+    } catch (error) {
+      console.error('Erro ao sincronizar com Supabase:', error);
+      alert('Erro ao sincronizar com Supabase. Verifique o console para mais detalhes.');
+    } finally {
+      setIsSyncing(false);
+    }
+  };
 
   if (!currentMonthData) return <div>Carregando...</div>;
 
-  const totalPublicidade = PUBLICIDADE_CATEGORIES.reduce((acc, cat) => acc + filteredTransactions.filter(t => t.category === cat).reduce((sum, t) => sum + t.amount, 0), 0);
-  const totalStand = MANUTENCAO_STAND_CATEGORIES.reduce((acc, cat) => acc + filteredTransactions.filter(t => t.category === cat).reduce((sum, t) => sum + t.amount, 0), 0);
-  const totalInstitucional = INSTITUCIONAL_CATEGORIES.reduce((acc, cat) => acc + filteredTransactions.filter(t => t.category === cat).reduce((sum, t) => sum + t.amount, 0), 0);
-  const totalGasto = totalPublicidade + totalStand + totalInstitucional;
+  const handleCommercialChange = (field: 'leads' | 'vendas' | 'vgv' | 'visitasOn' | 'visitasOff', value: string) => {
+    if (selectedProject === 'ALL') return;
+    const num = parseFloat(value);
+    updateCommercialData(selectedProject as Project, { [field]: isNaN(num) ? 0 : num });
+  };
 
-  let budgetPub = 0;
-  let budgetStand = 0;
-  let budgetInst = 0;
-  let budgetProdutos = 0;
-  let totalLeads = 0;
-  let totalVendas = 0;
-  let totalVGV = 0;
-  let totalVgvProduto = 0;
-  let totalEstoque = 0;
-  let totalMetaVendas = 0;
-  let totalVisitasOn = 0;
-  let totalVisitasOff = 0;
-
-  const projectsToInclude = selectedProject !== 'ALL' 
-    ? [selectedProject] 
-    : selectedCity !== 'ALL' 
-      ? PROJECTS_BY_CITY[selectedCity] 
-      : ALL_PROJECTS;
-
-  projectsToInclude.forEach(p => {
-    const b = currentMonthData.budgets[p];
-    if (b) {
-      budgetPub += b.publicidade || 0;
-      budgetStand += b.stand || 0;
-      budgetInst += b.institucional || 0;
-      budgetProdutos += b.produtos || 0;
-      totalVgvProduto += b.vgv || 0;
-      totalEstoque += b.estoqueUnid || 0;
-      totalMetaVendas += b.metaVendas || 0;
-    }
-    
-    const comm = currentMonthData.commercial[p];
-    if (comm) {
-      totalLeads += comm.leads || 0;
-      totalVendas += comm.vendas || 0;
-      totalVGV += comm.vgv || 0;
-      totalVisitasOn += comm.visitasOn || 0;
-      totalVisitasOff += comm.visitasOff || 0;
-    }
-  });
-
-  const totalPrevisto = budgetPub + budgetStand + budgetInst + budgetProdutos;
-  const percentMkt = totalVgvProduto > 0 ? (budgetPub / totalVgvProduto) * 100 : 0;
-  const percentManutStand = totalVgvProduto > 0 ? (budgetStand / totalVgvProduto) * 100 : 0;
-  const percentProduto = totalVgvProduto > 0 ? (budgetProdutos / totalVgvProduto) * 100 : 0;
-  const taxaConversao = totalLeads > 0 ? (totalVendas / totalLeads) * 100 : 0;
-  const leadsPorVenda = totalVendas > 0 ? totalLeads / totalVendas : 0;
-
-  const saldoPub = budgetPub - totalPublicidade;
-  const percentualPub = budgetPub > 0 ? (totalPublicidade / budgetPub) * 100 : 0;
-
-  const saldoStand = budgetStand - totalStand;
-  const percentualStand = budgetStand > 0 ? (totalStand / budgetStand) * 100 : 0;
-
-  const pieData = [
-    { name: 'Publicidade', value: totalPublicidade },
-    { name: 'Stand', value: totalStand },
-    { name: 'Institucional', value: totalInstitucional }
-  ].filter(d => d.value > 0);
-
-  const barData = PUBLICIDADE_CATEGORIES.map(cat => ({
-    name: cat,
-    valor: filteredTransactions.filter(t => t.category === cat).reduce((sum, t) => sum + t.amount, 0)
-  })).filter(d => d.valor > 0).sort((a, b) => b.valor - a.valor);
-
-  const comboData = data.slice().reverse().map(m => {
-    let mLeads = 0;
-    let mInvestido = 0;
-    let mPrevisto = 0;
-    
-    projectsToInclude.forEach(p => {
-      mLeads += m.commercial[p]?.leads || 0;
-      mPrevisto += (m.budgets[p]?.publicidade || 0) + (m.budgets[p]?.stand || 0) + (m.budgets[p]?.institucional || 0);
-    });
-
-    const mTransactions = transactions.filter(t => t.date.startsWith(m.id)).filter(t => {
-      if (selectedCity !== 'ALL' && t.city !== selectedCity) return false;
-      if (selectedProject !== 'ALL' && t.project !== selectedProject) return false;
-      return true;
-    });
-    mInvestido = mTransactions.reduce((sum, t) => sum + t.amount, 0);
-
-    return {
-      name: MONTHS[m.month - 1].substring(0, 3),
-      leads: mLeads,
-      investido: mInvestido,
-      previsto: mPrevisto
-    };
-  });
-
-  // Trend logic (comparing to previous month if exists)
-  const currentIndex = data.findIndex(m => m.id === currentMonthData.id);
-  const prevMonthData = data[currentIndex + 1]; // assuming sorted desc
-  let trend = 0;
-  if (prevMonthData) {
-    const prevTransactions = data[currentIndex + 1] ? 
-      data[currentIndex + 1].id // Wait, we need transactions from previous month to filter correctly.
-      // For simplicity, let's just use the raw expenses if we don't have filtered past transactions easily available.
-      // Actually, since we have all transactions in context, let's filter them.
-      : null;
-  }
-  
-  // Let's rewrite trend logic to use filtered transactions
-  if (prevMonthData) {
-    const prevMonthTransactions = transactions.filter(t => t.date.startsWith(prevMonthData.id)).filter(t => {
-      if (selectedCity !== 'ALL' && t.city !== selectedCity) return false;
-      if (selectedProject !== 'ALL' && t.project !== selectedProject) return false;
-      return true;
-    });
-    const prevTotal = prevMonthTransactions.reduce((sum, t) => sum + t.amount, 0);
-    if (prevTotal > 0) {
-      trend = ((totalGasto - prevTotal) / prevTotal) * 100;
-    }
-  }
-
-  const isAllMonths = selectedMonthId.endsWith('-ALL');
-  const currentMonthEvents = isAllMonths ? [] : timelineEvents.filter(e => e.date.startsWith(selectedMonthId)).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-  const [year, month] = selectedMonthId.split('-').map(Number);
-  const daysInMonth = isAllMonths ? 0 : new Date(year, month, 0).getDate();
-  const days = Array.from({ length: daysInMonth }, (_, i) => i + 1);
+  const currentCommercial = selectedProject !== 'ALL' 
+    ? (currentMonthData.commercial[selectedProject] || { leads: 0, vendas: 0, vgv: 0, visitasOn: 0, visitasOff: 0 })
+    : null;
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
       <header className="flex flex-col md:flex-row md:items-end justify-between gap-4">
         <div>
-          <h2 className="text-3xl font-bold text-slate-900 tracking-tight">Dashboard</h2>
+          <h2 className="text-3xl font-bold text-slate-900 tracking-tight">Comercial</h2>
           <p className="text-slate-500 mt-1">
-            Visão geral de {MONTHS[currentMonthData.month - 1]} de {currentMonthData.year}
+            Insira os dados comerciais para {MONTHS[currentMonthData.month - 1]} de {currentMonthData.year}
           </p>
         </div>
-        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
-          <div className="bg-white px-4 py-2 rounded-xl shadow-sm border border-slate-200 flex items-center space-x-3">
-            <div className={`p-2 rounded-lg ${trend <= 0 ? 'bg-emerald-100 text-emerald-600' : 'bg-rose-100 text-rose-600'}`}>
-              {trend <= 0 ? <TrendingDown size={20} /> : <TrendingUp size={20} />}
-            </div>
-            <div>
-              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">vs Mês Anterior</p>
-              <p className={`text-sm font-bold ${trend <= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
-                {trend > 0 ? '+' : ''}{trend.toFixed(1)}%
-              </p>
-            </div>
-          </div>
+        <div className="flex items-center space-x-3">
+          <button
+            onClick={handleSupabaseSync}
+            disabled={isSyncing}
+            className="flex items-center space-x-2 px-4 py-2.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-xl shadow-sm transition-colors font-medium disabled:opacity-50"
+          >
+            {isSyncing ? <Loader2 size={20} className="animate-spin" /> : <Database size={20} />}
+            <span>{isSyncing ? 'Sincronizando...' : 'Sincronizar Supabase'}</span>
+          </button>
+          <input
+            type="file"
+            accept=".csv,.xlsx,.xls"
+            ref={fileInputRef}
+            onChange={handleFileUpload}
+            className="hidden"
+          />
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            className="flex items-center space-x-2 px-4 py-2.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 rounded-xl shadow-sm transition-colors font-medium"
+          >
+            <Upload size={20} />
+            <span>Importar Planilha</span>
+          </button>
+          <button
+            onClick={() => setIsCommercialModalOpen(true)}
+            className="flex items-center space-x-2 px-4 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl shadow-sm transition-colors font-medium"
+          >
+            <PlusCircle size={20} />
+            <span>Novo Lançamento</span>
+          </button>
         </div>
       </header>
 
-      {/* Top KPIs */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-        <div className="bg-[#61072E] rounded-2xl p-4 shadow-sm text-white flex flex-col justify-center items-center text-center">
-          <p className="text-xs font-medium text-white/70 uppercase tracking-wider mb-1">VGV do Produto</p>
-          <p className="text-xl font-bold">{formatCurrency(totalVgvProduto)}</p>
+      {selectedProject === 'ALL' ? (
+        <div className="bg-amber-50 border border-amber-200 text-amber-800 p-4 rounded-xl shadow-sm">
+          <p className="font-medium">Selecione um empreendimento específico no menu lateral para inserir dados comerciais.</p>
         </div>
-        <div className="bg-[#61072E] rounded-2xl p-4 shadow-sm text-white flex flex-col justify-center items-center text-center">
-          <p className="text-xs font-medium text-white/70 uppercase tracking-wider mb-1">% MKT</p>
-          <p className="text-xl font-bold">{percentMkt.toFixed(2)}%</p>
+      ) : selectedMonthId.endsWith('-ALL') ? (
+        <div className="bg-amber-50 border border-amber-200 text-amber-800 p-4 rounded-xl shadow-sm">
+          <p className="font-medium">Selecione um mês específico para editar as métricas comerciais.</p>
         </div>
-        <div className="bg-[#61072E] rounded-2xl p-4 shadow-sm text-white flex flex-col justify-center items-center text-center">
-          <p className="text-xs font-medium text-white/70 uppercase tracking-wider mb-1">% Manut. Stand</p>
-          <p className="text-xl font-bold">{percentManutStand.toFixed(2)}%</p>
-        </div>
-        <div className="bg-[#61072E] rounded-2xl p-4 shadow-sm text-white flex flex-col justify-center items-center text-center">
-          <p className="text-xs font-medium text-white/70 uppercase tracking-wider mb-1">% Produto</p>
-          <p className="text-xl font-bold">{percentProduto.toFixed(2)}%</p>
-        </div>
-        <div className="bg-[#61072E] rounded-2xl p-4 shadow-sm text-white flex flex-col justify-center items-center text-center">
-          <p className="text-xs font-medium text-white/70 uppercase tracking-wider mb-1">Estoque de Unid.</p>
-          <p className="text-xl font-bold">{totalEstoque}</p>
-        </div>
-        <div className="bg-[#61072E] rounded-2xl p-4 shadow-sm text-white flex flex-col justify-center items-center text-center">
-          <p className="text-xs font-medium text-white/70 uppercase tracking-wider mb-1">Meta de Vendas</p>
-          <p className="text-xl font-bold">{totalMetaVendas}</p>
-        </div>
-      </div>
-
-      {/* Middle Section: Charts */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-200">
-          <h3 className="text-lg font-bold text-slate-800 mb-6">Origem x Investimento</h3>
-          <div className="h-80">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={barData} layout="vertical" margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
-                <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#e2e8f0" />
-                <XAxis type="number" tickFormatter={(value) => `R$ ${value / 1000}k`} stroke="#64748b" />
-                <YAxis dataKey="name" type="category" width={150} tick={{ fontSize: 12 }} stroke="#64748b" />
-                <Tooltip 
-                  formatter={(value: number) => formatCurrency(value)}
-                  contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
-                />
-                <Bar dataKey="valor" fill="#10b981" radius={[0, 4, 4, 0]}>
-                  {barData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-200">
-          <h3 className="text-lg font-bold text-slate-800 mb-6">Planejado x Realizado</h3>
-          <div className="space-y-6">
-            {projectsToInclude.map(p => {
-              const pBudget = (currentMonthData.budgets[p]?.publicidade || 0) + (currentMonthData.budgets[p]?.stand || 0) + (currentMonthData.budgets[p]?.institucional || 0) + (currentMonthData.budgets[p]?.produtos || 0);
-              const pInvestido = filteredTransactions.filter(t => t.project === p).reduce((sum, t) => sum + t.amount, 0);
-              const pPercent = pBudget > 0 ? (pInvestido / pBudget) * 100 : 0;
-              
-              if (pBudget === 0 && pInvestido === 0) return null;
-
-              return (
-                <div key={p}>
-                  <div className="flex justify-between text-sm mb-1">
-                    <span className="font-medium text-slate-700">{p}</span>
-                    <span className="text-slate-500">{formatCurrency(pInvestido)} / {formatCurrency(pBudget)}</span>
-                  </div>
-                  <div className="w-full bg-slate-100 rounded-full h-4 overflow-hidden flex">
-                    <div 
-                      className={`h-full ${pPercent > 100 ? 'bg-rose-500' : pPercent > 80 ? 'bg-amber-500' : 'bg-emerald-500'}`} 
-                      style={{ width: `${Math.min(pPercent, 100)}%` }}
-                    ></div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      </div>
-
-      {/* Bottom Section */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* 6 KPIs */}
-        <div className="lg:col-span-3 grid grid-cols-2 gap-4">
-          <div className="bg-white rounded-2xl p-4 shadow-sm border border-slate-200 flex flex-col items-center justify-center text-center">
-            <Users className="text-slate-400 mb-2" size={24} />
-            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Leads</p>
-            <p className="text-xl font-bold text-slate-900">{totalLeads.toLocaleString('pt-BR')}</p>
-          </div>
-          <div className="bg-white rounded-2xl p-4 shadow-sm border border-slate-200 flex flex-col items-center justify-center text-center">
-            <ShoppingCart className="text-slate-400 mb-2" size={24} />
-            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Vendas</p>
-            <p className="text-xl font-bold text-slate-900">{totalVendas}</p>
-          </div>
-          <div className="bg-white rounded-2xl p-4 shadow-sm border border-slate-200 flex flex-col items-center justify-center text-center">
-            <Activity className="text-slate-400 mb-2" size={24} />
-            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Visitas On</p>
-            <p className="text-xl font-bold text-slate-900">{totalVisitasOn}</p>
-          </div>
-          <div className="bg-white rounded-2xl p-4 shadow-sm border border-slate-200 flex flex-col items-center justify-center text-center">
-            <Activity className="text-slate-400 mb-2" size={24} />
-            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Visitas Off</p>
-            <p className="text-xl font-bold text-slate-900">{totalVisitasOff}</p>
-          </div>
-          <div className="bg-white rounded-2xl p-4 shadow-sm border border-slate-200 flex flex-col items-center justify-center text-center col-span-2">
-            <DollarSign className="text-slate-400 mb-2" size={24} />
-            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">VGV Realizado</p>
-            <p className="text-xl font-bold text-slate-900">{formatCurrency(totalVGV)}</p>
-          </div>
-        </div>
-
-        {/* Combo Chart */}
-        <div className="lg:col-span-5 bg-white rounded-2xl p-6 shadow-sm border border-slate-200">
-          <h3 className="text-sm font-bold text-slate-800 mb-4">Evolução: Leads x Investimento</h3>
-          <div className="h-64">
-            <ResponsiveContainer width="100%" height="100%">
-              <ComposedChart data={comboData} margin={{ top: 5, right: 20, left: 20, bottom: 5 }}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
-                <XAxis dataKey="name" stroke="#64748b" fontSize={12} />
-                <YAxis yAxisId="left" stroke="#64748b" fontSize={12} tickFormatter={(val) => `R$${val/1000}k`} />
-                <YAxis yAxisId="right" orientation="right" stroke="#64748b" fontSize={12} />
-                <Tooltip 
-                  contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
-                />
-                <Legend />
-                <Bar yAxisId="left" dataKey="investido" name="Investimento Realizado" fill="#61072E" radius={[4, 4, 0, 0]} />
-                <Line yAxisId="left" type="monotone" dataKey="previsto" name="Investimento Previsto" stroke="#f59e0b" strokeWidth={2} dot={false} />
-                <Line yAxisId="right" type="monotone" dataKey="leads" name="Número de Leads" stroke="#10b981" strokeWidth={2} />
-              </ComposedChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-
-        {/* Tables */}
-        <div className="lg:col-span-4 flex flex-col gap-6">
-          <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden flex-1">
-            <div className="px-4 py-3 border-b border-slate-200 bg-slate-50">
-              <h3 className="text-sm font-bold text-slate-800">Previsão (Orçamentos)</h3>
+      ) : (
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 border-t-4 border-t-rose-500">
+          <h3 className="text-lg font-semibold text-slate-800 mb-6">Métricas Comerciais - {selectedProject}</h3>
+          
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div>
+              <label className="block text-sm font-medium text-slate-600 mb-1">Leads</label>
+              <input
+                type="number"
+                value={currentCommercial?.leads || ''}
+                onChange={(e) => handleCommercialChange('leads', e.target.value)}
+                className="w-full px-4 py-2 rounded-xl border border-slate-300 focus:ring-2 focus:ring-rose-500 focus:border-rose-500 outline-none transition-all"
+                placeholder="Ex: 1500"
+              />
             </div>
-            <div className="overflow-y-auto max-h-40">
-              <table className="w-full text-left text-xs">
-                <thead className="bg-white sticky top-0">
-                  <tr className="text-slate-500 uppercase tracking-wider">
-                    <th className="px-4 py-2 font-medium">Empreendimento</th>
-                    <th className="px-4 py-2 font-medium text-right">Valor (R$)</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {projectsToInclude.map(p => {
-                    const val = (currentMonthData.budgets[p]?.publicidade || 0) + (currentMonthData.budgets[p]?.stand || 0) + (currentMonthData.budgets[p]?.institucional || 0) + (currentMonthData.budgets[p]?.produtos || 0);
-                    if (val === 0) return null;
-                    return (
-                      <tr key={p} className="hover:bg-slate-50">
-                        <td className="px-4 py-2 font-medium text-slate-700">{p}</td>
-                        <td className="px-4 py-2 text-right text-slate-900">{formatCurrency(val)}</td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+            
+            <div>
+              <label className="block text-sm font-medium text-slate-600 mb-1">Vendas</label>
+              <input
+                type="number"
+                value={currentCommercial?.vendas || ''}
+                onChange={(e) => handleCommercialChange('vendas', e.target.value)}
+                className="w-full px-4 py-2 rounded-xl border border-slate-300 focus:ring-2 focus:ring-rose-500 focus:border-rose-500 outline-none transition-all"
+                placeholder="Ex: 12"
+              />
             </div>
-          </div>
 
-          <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden flex-1">
-            <div className="px-4 py-3 border-b border-slate-200 bg-slate-50">
-              <h3 className="text-sm font-bold text-slate-800">Realizado (Lançamentos)</h3>
+            <div>
+              <label className="block text-sm font-medium text-slate-600 mb-1">VGV (R$)</label>
+              <input
+                type="number"
+                value={currentCommercial?.vgv || ''}
+                onChange={(e) => handleCommercialChange('vgv', e.target.value)}
+                className="w-full px-4 py-2 rounded-xl border border-slate-300 focus:ring-2 focus:ring-rose-500 focus:border-rose-500 outline-none transition-all"
+                placeholder="Ex: 5000000"
+              />
             </div>
-            <div className="overflow-y-auto max-h-40">
-              <table className="w-full text-left text-xs">
-                <thead className="bg-white sticky top-0">
-                  <tr className="text-slate-500 uppercase tracking-wider">
-                    <th className="px-4 py-2 font-medium">Empreendimento</th>
-                    <th className="px-4 py-2 font-medium">Categoria</th>
-                    <th className="px-4 py-2 font-medium text-right">Valor (R$)</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {filteredTransactions.slice(0, 10).map(t => (
-                    <tr key={t.id} className="hover:bg-slate-50">
-                      <td className="px-4 py-2 font-medium text-slate-700">{t.project}</td>
-                      <td className="px-4 py-2 text-slate-600 truncate max-w-[100px]">{t.category}</td>
-                      <td className="px-4 py-2 text-right text-slate-900">{formatCurrency(t.amount)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-      </div>
 
-      {/* Timeline Visualization */}
-      {!isAllMonths && (
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-8 overflow-x-auto mt-6">
-          <div className="flex flex-col md:flex-row md:items-center justify-between mb-12 gap-4">
-            <h3 className="text-lg font-bold text-slate-800">Timeline de Ações</h3>
-            <div className="flex flex-wrap gap-3">
-              {Object.entries(PROJECT_COLORS).map(([proj, color]) => (
-                <div key={proj} className="flex items-center space-x-1.5">
-                  <div className={`w-3 h-3 rounded-full ${color}`}></div>
-                  <span className="text-xs font-medium text-slate-600">{proj}</span>
-                </div>
-              ))}
+            <div>
+              <label className="block text-sm font-medium text-slate-600 mb-1">Visitas On</label>
+              <input
+                type="number"
+                value={currentCommercial?.visitasOn || ''}
+                onChange={(e) => handleCommercialChange('visitasOn', e.target.value)}
+                className="w-full px-4 py-2 rounded-xl border border-slate-300 focus:ring-2 focus:ring-rose-500 focus:border-rose-500 outline-none transition-all"
+                placeholder="Ex: 300"
+              />
             </div>
-          </div>
-          <div className="min-w-[1200px] py-12 px-28">
-            <div className="flex items-center justify-between relative">
-              {/* Main horizontal line */}
-              <div className="absolute left-0 right-0 top-1/2 h-2 bg-slate-200 -z-10 rounded-full"></div>
-              
-              {days.map((day, index) => {
-                const dateStr = `${selectedMonthId}-${day.toString().padStart(2, '0')}`;
-                const dayEvents = currentMonthEvents.filter(e => e.date === dateStr);
-                const hasEvents = dayEvents.length > 0;
-                
-                // Alternate up and down for nodes with events
-                const isUp = index % 2 === 0;
-                
-                // Color palette for nodes based on project
-                const nodeColor = hasEvents ? (PROJECT_COLORS[dayEvents[0].project] || 'bg-slate-800') : 'bg-slate-300';
-                
-                return (
-                  <div key={day} className="flex flex-col items-center relative group w-8">
-                    {/* The Node */}
-                    <div className={`w-6 h-6 rounded-full border-4 border-white shadow-sm z-10 ${nodeColor}`}></div>
-                    
-                    {hasEvents && (
-                      <>
-                        {/* Connecting Line */}
-                        <div className={`absolute w-0.5 ${nodeColor} opacity-50`} 
-                             style={{ 
-                               height: '60px', 
-                               top: isUp ? '-60px' : '24px',
-                               left: '50%',
-                               transform: 'translateX(-50%)'
-                             }}>
-                        </div>
-                        
-                        {/* Triangle Pointer */}
-                        <div className={`absolute w-0 h-0 border-l-[6px] border-l-transparent border-r-[6px] border-r-transparent ${isUp ? 'border-b-[8px] border-b-' + nodeColor.replace('bg-', '') : 'border-t-[8px] border-t-' + nodeColor.replace('bg-', '')}`}
-                             style={{
-                               top: isUp ? '-10px' : '26px',
-                               left: '50%',
-                               transform: 'translateX(-50%)',
-                               borderBottomColor: isUp ? nodeColor.replace('bg-', '') : 'transparent',
-                               borderTopColor: !isUp ? nodeColor.replace('bg-', '') : 'transparent',
-                             }}>
-                        </div>
 
-                        {/* Content Box */}
-                        <div className={`absolute w-48 ${isUp ? 'bottom-[80px]' : 'top-[80px]'} left-1/2 -translate-x-1/2`}>
-                          <div className={`text-xl font-bold mb-2 text-center ${nodeColor.replace('bg-', 'text-')}`}>
-                            {day.toString().padStart(2, '0')}
-                          </div>
-                          <div className="bg-white p-3 rounded-xl shadow-md border border-slate-100 text-sm">
-                            {dayEvents.map((e, i) => (
-                              <div key={e.id} className={`${i > 0 ? 'mt-2 pt-2 border-t border-slate-100' : ''}`}>
-                                {e.imageUrl && (
-                                  <div className="w-full h-20 mb-2 rounded-lg overflow-hidden bg-slate-100">
-                                    <img src={e.imageUrl} alt={e.title || e.project} className="w-full h-full object-cover" />
-                                  </div>
-                                )}
-                                <div className="flex items-center space-x-1.5">
-                                  <div className={`w-2 h-2 rounded-full flex-shrink-0 ${PROJECT_COLORS[e.project] || 'bg-slate-800'}`}></div>
-                                  <div className="font-bold text-slate-800 truncate">{e.title || e.project}</div>
-                                </div>
-                                <div className="text-xs text-slate-500 mt-1 line-clamp-2">{e.action}</div>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      </>
-                    )}
-                  </div>
-                );
-              })}
+            <div>
+              <label className="block text-sm font-medium text-slate-600 mb-1">Visitas Off</label>
+              <input
+                type="number"
+                value={currentCommercial?.visitasOff || ''}
+                onChange={(e) => handleCommercialChange('visitasOff', e.target.value)}
+                className="w-full px-4 py-2 rounded-xl border border-slate-300 focus:ring-2 focus:ring-rose-500 focus:border-rose-500 outline-none transition-all"
+                placeholder="Ex: 150"
+              />
             </div>
           </div>
         </div>
       )}
+
+      {/* Tabela de Lançamentos Comerciais */}
+      <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+        <div className="px-6 py-4 border-b border-slate-200 bg-slate-50 flex justify-between items-center">
+          <h3 className="text-lg font-bold text-slate-800">Lançamentos Comerciais</h3>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-sm">
+            <thead className="bg-white">
+              <tr className="text-slate-500 uppercase tracking-wider text-xs border-b border-slate-200">
+                <th className="px-6 py-4 font-medium">Data</th>
+                <th className="px-6 py-4 font-medium">Empreendimento</th>
+                <th className="px-6 py-4 font-medium">Tipo</th>
+                <th className="px-6 py-4 font-medium">Detalhes</th>
+                <th className="px-6 py-4 font-medium text-right">Ações</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {filteredCommercialRecords.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="px-6 py-8 text-center text-slate-500">
+                    Nenhum lançamento comercial encontrado para este período.
+                  </td>
+                </tr>
+              ) : (
+                filteredCommercialRecords.map(record => (
+                  <tr key={record.id} className="hover:bg-slate-50 transition-colors">
+                    <td className="px-6 py-4 whitespace-nowrap text-slate-600">
+                      {new Date(record.date).toLocaleDateString('pt-BR', { timeZone: 'UTC' })}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className="font-medium text-slate-900">{record.project}</span>
+                      <span className="block text-xs text-slate-500">{record.city}</span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                        record.type === 'venda' ? 'bg-emerald-100 text-emerald-800' : 'bg-blue-100 text-blue-800'
+                      }`}>
+                        {record.type === 'venda' ? 'Venda' : 'Pipeline'}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 text-slate-600">
+                      {record.type === 'venda' ? (
+                        <div className="text-xs space-y-1">
+                          <p><strong>Vendas:</strong> {(record as SaleRecord).vendas} | <strong>Qtde:</strong> {(record as SaleRecord).qtde} | <strong>Unidade:</strong> {(record as SaleRecord).unidade}</p>
+                          <p><strong>VGV Nom:</strong> {formatCurrency((record as SaleRecord).vgvNominal)} | <strong>VGV VP:</strong> {formatCurrency((record as SaleRecord).vgvVp)}</p>
+                          <p><strong>EV:</strong> {formatCurrency((record as SaleRecord).ev)} | <strong>Origem:</strong> {(record as SaleRecord).origem}</p>
+                          <p><strong>Status 1:</strong> {(record as SaleRecord).status1} | <strong>Status 2:</strong> {(record as SaleRecord).status2}</p>
+                        </div>
+                      ) : (
+                        <div className="text-xs space-y-1">
+                          <p><strong>Pipeline:</strong> {(record as PipelineRecord).pipeline} | <strong>Qtde:</strong> {(record as PipelineRecord).qtdeTratativas} | <strong>Unidade:</strong> {(record as PipelineRecord).unidade}</p>
+                          <p><strong>Prop. Negociada:</strong> {(record as PipelineRecord).propostaNegociada} | <strong>Prop. VGV:</strong> {formatCurrency((record as PipelineRecord).propostaVgvNominal)}</p>
+                          <p><strong>Imobiliária:</strong> {(record as PipelineRecord).imobiliaria} | <strong>Origem:</strong> {(record as PipelineRecord).origem}</p>
+                          <p><strong>Status:</strong> {(record as PipelineRecord).status} | <strong>Desc:</strong> {(record as PipelineRecord).descritivo}</p>
+                        </div>
+                      )}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-right">
+                      <button
+                        onClick={() => deleteCommercialRecord(record.id)}
+                        className="text-rose-500 hover:text-rose-700 p-2 hover:bg-rose-50 rounded-lg transition-colors"
+                        title="Excluir"
+                      >
+                        <Trash2 size={18} />
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
     </div>
   );
 };
