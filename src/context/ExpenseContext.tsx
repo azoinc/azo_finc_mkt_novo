@@ -483,7 +483,10 @@ export const ExpenseProvider: React.FC<{ children: React.ReactNode }> = ({ child
                 id,
                 year,
                 month,
-                budget: {},
+                budgets: ALL_PROJECTS.reduce((acc, p) => {
+                  acc[p] = { publicidade: 100000, stand: 50000, institucional: 20000, produtos: 0, vgv: 0, percentMkt: 0, percentManutStand: 0, percentProduto: 0, estoqueUnid: 0, metaVendas: 0 };
+                  return acc;
+                }, {} as Record<string, ProjectBudget>),
                 commercial: {}
               });
             }
