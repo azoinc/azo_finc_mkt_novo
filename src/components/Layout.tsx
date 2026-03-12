@@ -116,10 +116,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTa
                     value={currentMonthData?.year || ''}
                     onChange={(e) => {
                       const year = parseInt(e.target.value);
-                      const monthsInYear = data.filter(m => m.year === year).sort((a, b) => b.month - a.month);
-                      if (monthsInYear.length > 0) {
-                        setSelectedMonthId(monthsInYear[0].id);
-                      }
+                      setSelectedMonthId(`${year}-ALL`);
                     }}
                     className="w-full bg-[#4a0523] border border-[#7a093a] text-white rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-emerald-500 text-sm"
                   >
@@ -135,6 +132,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTa
                     onChange={(e) => setSelectedMonthId(e.target.value)}
                     className="w-full bg-[#4a0523] border border-[#7a093a] text-white rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-emerald-500 text-sm"
                   >
+                    <option value={`${currentMonthData?.year || new Date().getFullYear()}-ALL`}>Todos os meses</option>
                     {data.filter(m => m.year === (currentMonthData?.year || new Date().getFullYear())).sort((a, b) => b.month - a.month).map(m => (
                       <option key={m.id} value={m.id}>{MONTHS[m.month - 1]}</option>
                     ))}
