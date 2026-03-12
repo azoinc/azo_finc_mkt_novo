@@ -356,33 +356,56 @@ export const ExpenseProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
 
     try {
+      console.log('Iniciando busca de dados no Supabase (tabela vendas)...');
       const { data: vendasData, error } = await supabase
         .from('vendas')
         .select('*');
 
-      if (error) throw error;
-      if (!vendasData) return;
+      if (error) {
+        console.error('Erro retornado pelo Supabase:', error);
+        throw error;
+      }
+      
+      console.log('Dados brutos recebidos do Supabase:', vendasData);
+      
+      if (!vendasData || vendasData.length === 0) {
+        console.log('Nenhum dado encontrado. Verifique se a tabela está vazia ou se o RLS está bloqueando a leitura.');
+        return;
+      }
 
       let finalRecords: CommercialRecord[] = [];
       let hasChanges = false;
       const seenSupabaseIds = new Set<string>();
       const requiredMonths = new Set<{year: number, month: number}>();
+      let skippedCount = 0;
 
       setCommercialRecords(prevRecords => {
         const newRecords = [...prevRecords];
         
-        vendasData.forEach((venda: any) => {
+        vendasData.forEach((venda: any, index: number) => {
           const supabaseId = venda.Id_vendas?.toString() || venda.id?.toString();
-          if (!supabaseId) return;
+          if (!supabaseId) {
+            console.warn(`Linha ${index} ignorada: Não possui 'Id_vendas' ou 'id'. Dados:`, venda);
+            skippedCount++;
+            return;
+          }
           
           seenSupabaseIds.add(supabaseId);
 
           const projName = venda.empreendimento || '';
           const matchedProject = matchProject(projName);
-          if (!matchedProject) return;
+          if (!matchedProject) {
+            console.warn(`Linha ${index} (ID: ${supabaseId}) ignorada: Empreendimento '${projName}' não reconhecido. Dados:`, venda);
+            skippedCount++;
+            return;
+          }
 
           const dateObj = new Date(venda.data_venda);
-          if (isNaN(dateObj.getTime())) return;
+          if (isNaN(dateObj.getTime())) {
+            console.warn(`Linha ${index} (ID: ${supabaseId}) ignorada: 'data_venda' inválida ou ausente. Valor: '${venda.data_venda}'. Dados:`, venda);
+            skippedCount++;
+            return;
+          }
 
           const year = dateObj.getFullYear();
           const month = dateObj.getMonth() + 1;
@@ -431,6 +454,8 @@ export const ExpenseProvider: React.FC<{ children: React.ReactNode }> = ({ child
             hasChanges = true;
           }
         });
+
+        console.log(`Processamento concluído. ${vendasData.length - skippedCount} registros válidos, ${skippedCount} ignorados.`);
 
         // Remove records that exist in Firebase with a supabaseId but are no longer in Supabase
         const filteredRecords = newRecords.filter(r => {
