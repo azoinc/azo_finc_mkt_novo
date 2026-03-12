@@ -66,7 +66,7 @@ const getInitialData = (): MonthData[] => {
 
 export const ExpenseProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [data, setData] = useState<MonthData[]>(getInitialData);
-  const [selectedMonthId, setSelectedMonthId] = useState<string>(generateId(new Date().getFullYear(), new Date().getMonth() + 1));
+  const [selectedMonthId, setSelectedMonthId] = useState<string>(`${new Date().getFullYear()}-ALL`);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isCommercialModalOpen, setIsCommercialModalOpen] = useState(false);
 
@@ -90,7 +90,8 @@ export const ExpenseProvider: React.FC<{ children: React.ReactNode }> = ({ child
         if (parsed.length > 0) {
           setData(parsed);
           if (!isLoaded) {
-            setSelectedMonthId(parsed[0]?.id || generateId(new Date().getFullYear(), new Date().getMonth() + 1));
+            const latestYear = parsed[0]?.year || new Date().getFullYear();
+            setSelectedMonthId(`${latestYear}-ALL`);
           }
         }
       }
@@ -229,7 +230,12 @@ export const ExpenseProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }));
   };
 
-  const currentMonthTransactions = transactions.filter(t => t.date.startsWith(selectedMonthId));
+  const isAllMonths = selectedMonthId.endsWith('-ALL');
+  const selectedYear = selectedMonthId.split('-')[0];
+
+  const currentMonthTransactions = isAllMonths
+    ? transactions.filter(t => t.date.startsWith(selectedYear))
+    : transactions.filter(t => t.date.startsWith(selectedMonthId));
   
   const filteredTransactions = currentMonthTransactions.filter(t => {
     if (selectedCity !== 'ALL' && t.city !== selectedCity) return false;
@@ -237,7 +243,9 @@ export const ExpenseProvider: React.FC<{ children: React.ReactNode }> = ({ child
     return true;
   });
 
-  const currentMonthCommercialRecords = commercialRecords.filter(r => r.date.startsWith(selectedMonthId));
+  const currentMonthCommercialRecords = isAllMonths
+    ? commercialRecords.filter(r => r.date.startsWith(selectedYear))
+    : commercialRecords.filter(r => r.date.startsWith(selectedMonthId));
 
   const filteredCommercialRecords = currentMonthCommercialRecords.filter(r => {
     if (selectedCity !== 'ALL' && r.city !== selectedCity) return false;
@@ -245,7 +253,46 @@ export const ExpenseProvider: React.FC<{ children: React.ReactNode }> = ({ child
     return true;
   });
 
-  const currentMonthData = data.find(m => m.id === selectedMonthId);
+  const currentMonthData = isAllMonths
+    ? (() => {
+        const year = parseInt(selectedYear);
+        const yearData = data.filter(m => m.year === year);
+        if (yearData.length === 0) return undefined;
+        
+        const aggregatedBudgets: Record<string, ProjectBudget> = {};
+        const aggregatedCommercial: Record<string, CommercialMetrics> = {};
+        
+        ALL_PROJECTS.forEach(p => {
+          aggregatedBudgets[p] = {
+            publicidade: yearData.reduce((sum, m) => sum + (m.budgets[p]?.publicidade || 0), 0),
+            stand: yearData.reduce((sum, m) => sum + (m.budgets[p]?.stand || 0), 0),
+            institucional: yearData.reduce((sum, m) => sum + (m.budgets[p]?.institucional || 0), 0),
+            produtos: yearData.reduce((sum, m) => sum + (m.budgets[p]?.produtos || 0), 0),
+            vgv: yearData.reduce((sum, m) => sum + (m.budgets[p]?.vgv || 0), 0),
+            percentMkt: 0,
+            percentManutStand: 0,
+            percentProduto: 0,
+            estoqueUnid: 0,
+            metaVendas: yearData.reduce((sum, m) => sum + (m.budgets[p]?.metaVendas || 0), 0),
+          };
+          aggregatedCommercial[p] = {
+            leads: yearData.reduce((sum, m) => sum + (m.commercial[p]?.leads || 0), 0),
+            vendas: yearData.reduce((sum, m) => sum + (m.commercial[p]?.vendas || 0), 0),
+            vgv: yearData.reduce((sum, m) => sum + (m.commercial[p]?.vgv || 0), 0),
+            visitasOn: yearData.reduce((sum, m) => sum + (m.commercial[p]?.visitasOn || 0), 0),
+            visitasOff: yearData.reduce((sum, m) => sum + (m.commercial[p]?.visitasOff || 0), 0),
+          };
+        });
+
+        return {
+          id: selectedMonthId,
+          month: 13,
+          year,
+          budgets: aggregatedBudgets,
+          commercial: aggregatedCommercial
+        } as MonthData;
+      })()
+    : data.find(m => m.id === selectedMonthId);
 
   const updateBudget = (project: Project, budget: Partial<ProjectBudget>) => {
     setData(prev => prev.map(m => {
@@ -400,16 +447,31 @@ export const ExpenseProvider: React.FC<{ children: React.ReactNode }> = ({ child
             return;
           }
 
-          const dateObj = new Date(venda.data_venda);
-          if (isNaN(dateObj.getTime())) {
-            console.warn(`Linha ${index} (ID: ${supabaseId}) ignorada: 'data_venda' inválida ou ausente. Valor: '${venda.data_venda}'. Dados:`, venda);
-            skippedCount++;
-            return;
+          let year: number;
+          let month: number;
+          let day: number = 1;
+          
+          if (typeof venda.data_venda === 'string' && venda.data_venda.includes('-')) {
+            // Extrai YYYY-MM-DD diretamente da string para evitar problemas de fuso horário (timezone)
+            // que fazem o dia 01/01 virar 31/12 do ano anterior no Brasil
+            const parts = venda.data_venda.split('T')[0].split('-');
+            year = parseInt(parts[0], 10);
+            month = parseInt(parts[1], 10);
+            if (parts.length >= 3) {
+              day = parseInt(parts[2], 10);
+            }
+          } else {
+            const dateObj = new Date(venda.data_venda);
+            if (isNaN(dateObj.getTime())) {
+              console.warn(`Linha ${index} (ID: ${supabaseId}) ignorada: 'data_venda' inválida ou ausente. Valor: '${venda.data_venda}'. Dados:`, venda);
+              skippedCount++;
+              return;
+            }
+            year = dateObj.getUTCFullYear();
+            month = dateObj.getUTCMonth() + 1;
+            day = dateObj.getUTCDate();
           }
-
-          const year = dateObj.getFullYear();
-          const month = dateObj.getMonth() + 1;
-          const dateStr = `${year}-${month.toString().padStart(2, '0')}-01`;
+          const dateStr = `${year}-${month.toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}`;
           const city = getCityForProject(matchedProject);
           const vgvNominal = parseFloat(venda.valor_contrato) || 0;
 
