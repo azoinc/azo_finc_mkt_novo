@@ -264,6 +264,11 @@ export default function CommercialEntry() {
   };
 
   const handleSupabaseSync = async () => {
+    if (!supabase) {
+      alert('Supabase não está configurado. Verifique as variáveis de ambiente VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY no arquivo .env');
+      return;
+    }
+
     setIsSyncing(true);
     try {
       await syncSupabaseData();
@@ -333,6 +338,10 @@ export default function CommercialEntry() {
       {selectedProject === 'ALL' ? (
         <div className="bg-amber-50 border border-amber-200 text-amber-800 p-4 rounded-xl shadow-sm">
           <p className="font-medium">Selecione um empreendimento específico no menu lateral para inserir dados comerciais.</p>
+        </div>
+      ) : selectedMonthId.endsWith('-ALL') ? (
+        <div className="bg-amber-50 border border-amber-200 text-amber-800 p-4 rounded-xl shadow-sm">
+          <p className="font-medium">Selecione um mês específico para editar as métricas comerciais.</p>
         </div>
       ) : (
         <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 border-t-4 border-t-rose-500">
@@ -424,7 +433,7 @@ export default function CommercialEntry() {
                 filteredCommercialRecords.map(record => (
                   <tr key={record.id} className="hover:bg-slate-50 transition-colors">
                     <td className="px-6 py-4 whitespace-nowrap text-slate-600">
-                      {new Date(record.date).toLocaleDateString('pt-BR')}
+                      {new Date(record.date).toLocaleDateString('pt-BR', { timeZone: 'UTC' })}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className="font-medium text-slate-900">{record.project}</span>
