@@ -1,7 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { useExpense } from '../context/ExpenseContext';
 import { Project, ALL_PROJECTS } from '../types';
-import { PlusCircle, Trash2, Image as ImageIcon } from 'lucide-react';
+import { PlusCircle, Trash2, Image as ImageIcon, Upload, X } from 'lucide-react';
+import { storage } from '../services/firebase';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 
 export default function Timeline() {
   const { timelineEvents, addTimelineEvent, deleteTimelineEvent, selectedMonthId, currentMonthData } = useExpense();
@@ -11,36 +13,83 @@ export default function Timeline() {
   const [title, setTitle] = useState('');
   const [location, setLocation] = useState('');
   const [action, setAction] = useState('');
-  const [imageUrl, setImageUrl] = useState('');
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [isAdding, setIsAdding] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   if (!currentMonthData) return <div>Carregando...</div>;
 
   const currentMonthEvents = timelineEvents.filter(e => e.date.startsWith(selectedMonthId)).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      setImageFile(file);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setImagePreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const clearImageSelection = () => {
+    setImageFile(null);
+    setImagePreview(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!date || !project || !title || !location || !action) {
       alert('Por favor, preencha todos os campos obrigatórios.');
       return;
     }
 
-    addTimelineEvent({
-      date,
-      project,
-      title,
-      location,
-      action,
-      imageUrl
-    });
+    setIsUploading(true);
+    let uploadedImageUrl = '';
 
-    setDate('');
-    setTitle('');
-    setLocation('');
-    setAction('');
-    setImageUrl('');
-    setIsAdding(false);
+    try {
+      if (imageFile) {
+        const storageRef = ref(storage, `timeline_images/${Date.now()}_${imageFile.name}`);
+        const snapshot = await uploadBytes(storageRef, imageFile);
+        uploadedImageUrl = await getDownloadURL(snapshot.ref);
+      }
+
+      addTimelineEvent({
+        date,
+        project,
+        title,
+        location,
+        action,
+        imageUrl: uploadedImageUrl
+      });
+
+      setDate('');
+      setTitle('');
+      setLocation('');
+      setAction('');
+      clearImageSelection();
+      setIsAdding(false);
+    } catch (error) {
+      console.error("Error uploading image: ", error);
+      alert("Erro ao fazer upload da imagem. Tente novamente.");
+    } finally {
+      setIsUploading(false);
+    }
   };
+
+  if (selectedMonthId.endsWith('-ALL')) {
+    return (
+      <div className="flex items-center justify-center h-64 text-slate-500">
+        Selecione um mês específico para visualizar a timeline diária.
+      </div>
+    );
+  }
 
   // Generate days 1 to 30/31 for the current month
   const [year, month] = selectedMonthId.split('-').map(Number);
@@ -115,14 +164,45 @@ export default function Timeline() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">URL da Imagem (Opcional)</label>
-                <input
-                  type="url"
-                  value={imageUrl}
-                  onChange={(e) => setImageUrl(e.target.value)}
-                  placeholder="https://exemplo.com/imagem.jpg"
-                  className="w-full px-4 py-2 rounded-xl border border-slate-300 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition-all"
-                />
+                <label className="block text-sm font-medium text-slate-700 mb-1">Imagem (Opcional)</label>
+                <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-slate-300 border-dashed rounded-xl relative overflow-hidden group hover:border-emerald-500 transition-colors">
+                  {imagePreview ? (
+                    <div className="absolute inset-0 w-full h-full">
+                      <img src={imagePreview} alt="Preview" className="w-full h-full object-cover" />
+                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                        <button
+                          type="button"
+                          onClick={clearImageSelection}
+                          className="bg-rose-500 text-white p-2 rounded-full hover:bg-rose-600 transition-colors"
+                        >
+                          <X size={20} />
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="space-y-1 text-center">
+                      <Upload className="mx-auto h-12 w-12 text-slate-400" />
+                      <div className="flex text-sm text-slate-600">
+                        <label
+                          htmlFor="file-upload"
+                          className="relative cursor-pointer bg-white rounded-md font-medium text-emerald-600 hover:text-emerald-500 focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-emerald-500"
+                        >
+                          <span>Fazer upload de um arquivo</span>
+                          <input
+                            id="file-upload"
+                            name="file-upload"
+                            type="file"
+                            accept="image/*"
+                            className="sr-only"
+                            ref={fileInputRef}
+                            onChange={handleImageChange}
+                          />
+                        </label>
+                      </div>
+                      <p className="text-xs text-slate-500">PNG, JPG, GIF até 10MB</p>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
             <div>
@@ -146,9 +226,17 @@ export default function Timeline() {
               </button>
               <button
                 type="submit"
-                className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl transition-colors font-medium"
+                disabled={isUploading}
+                className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
               >
-                Salvar Ação
+                {isUploading ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                    <span>Salvando...</span>
+                  </>
+                ) : (
+                  <span>Salvar Ação</span>
+                )}
               </button>
             </div>
           </form>
