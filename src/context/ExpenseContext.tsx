@@ -383,7 +383,7 @@ export const ExpenseProvider: React.FC<{ children: React.ReactNode }> = ({ child
         const newRecords = [...prevRecords];
         
         vendasData.forEach((venda: any, index: number) => {
-          const supabaseId = venda.id_vendas?.toString() || venda.id?.toString() || venda.Id_vendas?.toString() || venda.id_venda?.toString();
+          const supabaseId = venda.id_vendas?.toString() || venda.id?.toString() || venda.Id_vendas?.toString();
           if (!supabaseId) {
             console.warn(`Linha ${index} ignorada: Não possui 'id_vendas' ou 'id'. Dados:`, venda);
             skippedCount++;
