@@ -143,9 +143,10 @@ export default function Dashboard() {
     }
   }
 
-  const currentMonthEvents = timelineEvents.filter(e => e.date.startsWith(selectedMonthId)).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+  const isAllMonths = selectedMonthId.endsWith('-ALL');
+  const currentMonthEvents = isAllMonths ? [] : timelineEvents.filter(e => e.date.startsWith(selectedMonthId)).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
   const [year, month] = selectedMonthId.split('-').map(Number);
-  const daysInMonth = new Date(year, month, 0).getDate();
+  const daysInMonth = isAllMonths ? 0 : new Date(year, month, 0).getDate();
   const days = Array.from({ length: daysInMonth }, (_, i) => i + 1);
 
   return (
@@ -365,87 +366,94 @@ export default function Dashboard() {
       </div>
 
       {/* Timeline Visualization */}
-      <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-8 overflow-x-auto mt-6">
-        <div className="flex flex-col md:flex-row md:items-center justify-between mb-12 gap-4">
-          <h3 className="text-lg font-bold text-slate-800">Timeline de Ações</h3>
-          <div className="flex flex-wrap gap-3">
-            {Object.entries(PROJECT_COLORS).map(([proj, color]) => (
-              <div key={proj} className="flex items-center space-x-1.5">
-                <div className={`w-3 h-3 rounded-full ${color}`}></div>
-                <span className="text-xs font-medium text-slate-600">{proj}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-        <div className="min-w-[1200px] py-12 px-28">
-          <div className="flex items-center justify-between relative">
-            {/* Main horizontal line */}
-            <div className="absolute left-0 right-0 top-1/2 h-2 bg-slate-200 -z-10 rounded-full"></div>
-            
-            {days.map((day, index) => {
-              const dateStr = `${selectedMonthId}-${day.toString().padStart(2, '0')}`;
-              const dayEvents = currentMonthEvents.filter(e => e.date === dateStr);
-              const hasEvents = dayEvents.length > 0;
-              
-              // Alternate up and down for nodes with events
-              const isUp = index % 2 === 0;
-              
-              // Color palette for nodes based on project
-              const nodeColor = hasEvents ? (PROJECT_COLORS[dayEvents[0].project] || 'bg-slate-800') : 'bg-slate-300';
-              
-              return (
-                <div key={day} className="flex flex-col items-center relative group w-8">
-                  {/* The Node */}
-                  <div className={`w-6 h-6 rounded-full border-4 border-white shadow-sm z-10 ${nodeColor}`}></div>
-                  
-                  {hasEvents && (
-                    <>
-                      {/* Connecting Line */}
-                      <div className={`absolute w-0.5 ${nodeColor} opacity-50`} 
-                           style={{ 
-                             height: '60px', 
-                             top: isUp ? '-60px' : '24px',
-                             left: '50%',
-                             transform: 'translateX(-50%)'
-                           }}>
-                      </div>
-                      
-                      {/* Triangle Pointer */}
-                      <div className={`absolute w-0 h-0 border-l-[6px] border-l-transparent border-r-[6px] border-r-transparent ${isUp ? 'border-b-[8px] border-b-' + nodeColor.replace('bg-', '') : 'border-t-[8px] border-t-' + nodeColor.replace('bg-', '')}`}
-                           style={{
-                             top: isUp ? '-10px' : '26px',
-                             left: '50%',
-                             transform: 'translateX(-50%)',
-                             borderBottomColor: isUp ? nodeColor.replace('bg-', '') : 'transparent',
-                             borderTopColor: !isUp ? nodeColor.replace('bg-', '') : 'transparent',
-                           }}>
-                      </div>
-
-                      {/* Content Box */}
-                      <div className={`absolute w-48 ${isUp ? 'bottom-[80px]' : 'top-[80px]'} left-1/2 -translate-x-1/2`}>
-                        <div className={`text-xl font-bold mb-2 text-center ${nodeColor.replace('bg-', 'text-')}`}>
-                          {day.toString().padStart(2, '0')}
-                        </div>
-                        <div className="bg-white p-3 rounded-xl shadow-md border border-slate-100 text-sm">
-                          {dayEvents.map((e, i) => (
-                            <div key={e.id} className={`${i > 0 ? 'mt-2 pt-2 border-t border-slate-100' : ''}`}>
-                              <div className="flex items-center space-x-1.5">
-                                <div className={`w-2 h-2 rounded-full flex-shrink-0 ${PROJECT_COLORS[e.project] || 'bg-slate-800'}`}></div>
-                                <div className="font-bold text-slate-800 truncate">{e.title || e.project}</div>
-                              </div>
-                              <div className="text-xs text-slate-500 mt-1 line-clamp-2">{e.action}</div>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    </>
-                  )}
+      {!isAllMonths && (
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-8 overflow-x-auto mt-6">
+          <div className="flex flex-col md:flex-row md:items-center justify-between mb-12 gap-4">
+            <h3 className="text-lg font-bold text-slate-800">Timeline de Ações</h3>
+            <div className="flex flex-wrap gap-3">
+              {Object.entries(PROJECT_COLORS).map(([proj, color]) => (
+                <div key={proj} className="flex items-center space-x-1.5">
+                  <div className={`w-3 h-3 rounded-full ${color}`}></div>
+                  <span className="text-xs font-medium text-slate-600">{proj}</span>
                 </div>
-              );
-            })}
+              ))}
+            </div>
+          </div>
+          <div className="min-w-[1200px] py-12 px-28">
+            <div className="flex items-center justify-between relative">
+              {/* Main horizontal line */}
+              <div className="absolute left-0 right-0 top-1/2 h-2 bg-slate-200 -z-10 rounded-full"></div>
+              
+              {days.map((day, index) => {
+                const dateStr = `${selectedMonthId}-${day.toString().padStart(2, '0')}`;
+                const dayEvents = currentMonthEvents.filter(e => e.date === dateStr);
+                const hasEvents = dayEvents.length > 0;
+                
+                // Alternate up and down for nodes with events
+                const isUp = index % 2 === 0;
+                
+                // Color palette for nodes based on project
+                const nodeColor = hasEvents ? (PROJECT_COLORS[dayEvents[0].project] || 'bg-slate-800') : 'bg-slate-300';
+                
+                return (
+                  <div key={day} className="flex flex-col items-center relative group w-8">
+                    {/* The Node */}
+                    <div className={`w-6 h-6 rounded-full border-4 border-white shadow-sm z-10 ${nodeColor}`}></div>
+                    
+                    {hasEvents && (
+                      <>
+                        {/* Connecting Line */}
+                        <div className={`absolute w-0.5 ${nodeColor} opacity-50`} 
+                             style={{ 
+                               height: '60px', 
+                               top: isUp ? '-60px' : '24px',
+                               left: '50%',
+                               transform: 'translateX(-50%)'
+                             }}>
+                        </div>
+                        
+                        {/* Triangle Pointer */}
+                        <div className={`absolute w-0 h-0 border-l-[6px] border-l-transparent border-r-[6px] border-r-transparent ${isUp ? 'border-b-[8px] border-b-' + nodeColor.replace('bg-', '') : 'border-t-[8px] border-t-' + nodeColor.replace('bg-', '')}`}
+                             style={{
+                               top: isUp ? '-10px' : '26px',
+                               left: '50%',
+                               transform: 'translateX(-50%)',
+                               borderBottomColor: isUp ? nodeColor.replace('bg-', '') : 'transparent',
+                               borderTopColor: !isUp ? nodeColor.replace('bg-', '') : 'transparent',
+                             }}>
+                        </div>
+
+                        {/* Content Box */}
+                        <div className={`absolute w-48 ${isUp ? 'bottom-[80px]' : 'top-[80px]'} left-1/2 -translate-x-1/2`}>
+                          <div className={`text-xl font-bold mb-2 text-center ${nodeColor.replace('bg-', 'text-')}`}>
+                            {day.toString().padStart(2, '0')}
+                          </div>
+                          <div className="bg-white p-3 rounded-xl shadow-md border border-slate-100 text-sm">
+                            {dayEvents.map((e, i) => (
+                              <div key={e.id} className={`${i > 0 ? 'mt-2 pt-2 border-t border-slate-100' : ''}`}>
+                                {e.imageUrl && (
+                                  <div className="w-full h-20 mb-2 rounded-lg overflow-hidden bg-slate-100">
+                                    <img src={e.imageUrl} alt={e.title || e.project} className="w-full h-full object-cover" />
+                                  </div>
+                                )}
+                                <div className="flex items-center space-x-1.5">
+                                  <div className={`w-2 h-2 rounded-full flex-shrink-0 ${PROJECT_COLORS[e.project] || 'bg-slate-800'}`}></div>
+                                  <div className="font-bold text-slate-800 truncate">{e.title || e.project}</div>
+                                </div>
+                                <div className="text-xs text-slate-500 mt-1 line-clamp-2">{e.action}</div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
           </div>
         </div>
-      </div>
+      )}
     </div>
   );
 };
