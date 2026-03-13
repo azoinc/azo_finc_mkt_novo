@@ -6,6 +6,7 @@ import {
   LineChart, Line, FunnelChart, Funnel, LabelList, Cell
 } from 'recharts';
 import { useInternoDashboard } from '../hooks/useInternoDashboard';
+import { DateRangePicker, DateRange } from '../components/DateRangePicker';
 
 interface Props {
   onBack: () => void;
@@ -179,36 +180,16 @@ export default function InternoDashboard({ onBack }: Props) {
       </header>
 
       {/* Filters Bar */}
-      <div className="bg-[#242731] border-b border-slate-800 px-6 py-3 flex items-center space-x-4 flex-wrap gap-y-2">
-        <div className="flex items-center space-x-2 text-slate-400 bg-[#1a1c23] px-3 py-1.5 rounded-lg border border-slate-700">
-          <Filter size={16} />
-          <select 
-            className="bg-transparent border-none outline-none text-sm text-slate-200"
-            value={filters.period}
-            onChange={(e) => setFilters({ ...filters, period: e.target.value })}
-          >
-            <option value="Últimos 30 dias">Últimos 30 dias</option>
-            <option value="Este mês">Este mês</option>
-            <option value="Mês passado">Mês passado</option>
-            <option value="Personalizado">Personalizado...</option>
-          </select>
-        </div>
-        
-        {filters.period === 'Personalizado' && (
-          <div className="flex items-center space-x-2 text-slate-400 bg-[#1a1c23] px-3 py-1.5 rounded-lg border border-slate-700">
-            <input 
-              type="date" 
-              className="bg-transparent border-none outline-none text-sm text-slate-200 [color-scheme:dark]"
-              onChange={(e) => setFilters({ ...filters, startDate: e.target.value })}
-            />
-            <span>até</span>
-            <input 
-              type="date" 
-              className="bg-transparent border-none outline-none text-sm text-slate-200 [color-scheme:dark]"
-              onChange={(e) => setFilters({ ...filters, endDate: e.target.value })}
-            />
-          </div>
-        )}
+      <div className="bg-[#242731] border-b border-slate-800 px-6 py-3 flex items-center space-x-4 flex-wrap gap-y-2 relative z-40">
+        <DateRangePicker 
+          value={{ period: filters.period, startDate: filters.startDate, endDate: filters.endDate }}
+          onChange={(range) => setFilters({ 
+            ...filters, 
+            period: range.period, 
+            startDate: range.startDate, 
+            endDate: range.endDate 
+          })}
+        />
 
         <div className="flex items-center space-x-2 text-slate-400 bg-[#1a1c23] px-3 py-1.5 rounded-lg border border-slate-700">
           <select 
