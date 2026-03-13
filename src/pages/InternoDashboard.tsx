@@ -115,21 +115,107 @@ const CustomTooltip = ({ active, payload, label }: any) => {
   return null;
 };
 
+// --- Helper to generate competence options ---
+const generateCompetenceOptions = () => {
+  const options = [{ label: 'Atual (Tempo Real)', value: 'Atual' }];
+  const date = new Date();
+  date.setDate(1); // Set to 1st of month
+  for (let i = 0; i < 12; i++) {
+    const value = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-01`;
+    const label = date.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+    options.push({ label: label.charAt(0).toUpperCase() + label.slice(1), value });
+    date.setMonth(date.getMonth() - 1);
+  }
+  return options;
+};
+
+const competenceOptions = generateCompetenceOptions();
+
+const CustomFunnel = ({ data, total }: { data: any[], total: number }) => {
+  const colors = ['#3b82f6', '#f59e0b', '#10b981', '#8b5cf6', '#06b6d4', '#eab308', '#ec4899', '#f43f5e', '#84cc16'];
+  
+  return (
+    <div className="relative w-full h-full flex items-center">
+      {/* Labels on the left */}
+      <div className="w-1/2 h-full flex flex-col justify-between py-4 z-10">
+        {data.map((item, idx) => {
+          const percentage = total > 0 ? ((item.value / total) * 100).toFixed(2) : '0.00';
+          return (
+            <div key={idx} className="flex items-center justify-end pr-4 relative h-full">
+              <span className="text-xs font-medium text-slate-300 whitespace-nowrap z-10 bg-[#242731] px-1">
+                {item.name} {item.value} ({percentage}%)
+              </span>
+              {/* Connecting line */}
+              <div className="absolute right-0 top-1/2 w-8 h-[1px] bg-slate-600 -mr-4"></div>
+            </div>
+          );
+        })}
+      </div>
+      
+      {/* Funnel SVG on the right */}
+      <div className="w-1/2 h-full py-4">
+        <svg width="100%" height="100%" viewBox="0 0 100 100" preserveAspectRatio="none">
+          {data.map((item, idx) => {
+            const n = data.length;
+            const yTop = (idx / n) * 100;
+            const yBottom = ((idx + 1) / n) * 100;
+            
+            // Width goes from 100% at top to 10% at bottom
+            const wTop = 100 - (idx / n) * 90;
+            const wBottom = 100 - ((idx + 1) / n) * 90;
+            
+            const xTopLeft = (100 - wTop) / 2;
+            const xTopRight = 100 - xTopLeft;
+            const xBottomLeft = (100 - wBottom) / 2;
+            const xBottomRight = 100 - xBottomLeft;
+            
+            return (
+              <polygon
+                key={idx}
+                points={`${xTopLeft},${yTop} ${xTopRight},${yTop} ${xBottomRight},${yBottom} ${xBottomLeft},${yBottom}`}
+                fill={colors[idx % colors.length]}
+                stroke="#242731"
+                strokeWidth="0.5"
+              />
+            );
+          })}
+        </svg>
+      </div>
+    </div>
+  );
+};
+
 export default function InternoDashboard({ onBack }: Props) {
   const { signOut } = useAuth();
   const [activeTab, setActiveTab] = useState<'gerais' | 'corretores' | 'ads'>('gerais');
-  const [filters, setFilters] = useState({ period: 'Últimos 30 dias', project: 'Todos', broker: 'Todos' });
+  const [filters, setFilters] = useState({ 
+    period: 'Últimos 30 dias', 
+    project: 'Todos', 
+    broker: 'Todos',
+    competence: 'Atual',
+    startDate: undefined,
+    endDate: undefined
+  });
 
   const { 
-    loading, error, statusData, funnelData, brokerTimeData, brokerActionsData, totalLeads, hottestStatus 
+    loading, error, statusData, funnelData, stackedStatusData, availableMonths, brokerTimeData, brokerActionsData, 
+    originData, cancelReasons, brokerLeads, lineData, totalLeads, hottestStatusData 
   } = useInternoDashboard(filters);
 
   const displayStatusData = statusData.length > 0 ? statusData : mockStatusData;
   const displayFunnelData = funnelData.length > 0 ? funnelData : mockFunnelData;
+  const displayStackedStatusData = stackedStatusData.length > 0 ? stackedStatusData : [];
+  const displayAvailableMonths = availableMonths.length > 0 ? availableMonths : [];
   const displayBrokerTime = brokerTimeData.length > 0 ? brokerTimeData : mockBrokerTime;
   const displayBrokerActions = brokerActionsData.length > 0 ? brokerActionsData : mockBrokerActions;
+  const displayOriginData = originData.length > 0 ? originData : mockOriginData;
+  const displayCancelReasons = cancelReasons.length > 0 ? cancelReasons : mockCancelReasons;
+  const displayBrokerLeads = brokerLeads.length > 0 ? brokerLeads : mockBrokerLeads;
+  const displayLineData = lineData.length > 0 ? lineData : mockLineData;
+  
   const displayTotalLeads = totalLeads > 0 ? totalLeads.toLocaleString('pt-BR') : '1.551';
-  const displayHottestStatus = hottestStatus !== '-' ? hottestStatus : 'Visita Realizada';
+  const displayVisitaCount = hottestStatusData.visita > 0 ? hottestStatusData.visita : 47;
+  const displayAgendamentoCount = hottestStatusData.agendamento > 0 ? hottestStatusData.agendamento : 20;
 
   return (
     <div className="min-h-screen bg-[#1a1c23] flex flex-col animate-in fade-in duration-500 font-sans text-slate-200">
@@ -194,6 +280,18 @@ export default function InternoDashboard({ onBack }: Props) {
         <div className="flex items-center space-x-2 text-slate-400 bg-[#1a1c23] px-3 py-1.5 rounded-lg border border-slate-700">
           <select 
             className="bg-transparent border-none outline-none text-sm text-slate-200"
+            value={filters.competence}
+            onChange={(e) => setFilters({ ...filters, competence: e.target.value })}
+          >
+            {competenceOptions.map(opt => (
+              <option key={opt.value} value={opt.value}>{opt.label}</option>
+            ))}
+          </select>
+        </div>
+
+        <div className="flex items-center space-x-2 text-slate-400 bg-[#1a1c23] px-3 py-1.5 rounded-lg border border-slate-700">
+          <select 
+            className="bg-transparent border-none outline-none text-sm text-slate-200"
             value={filters.project}
             onChange={(e) => setFilters({ ...filters, project: e.target.value })}
           >
@@ -227,24 +325,34 @@ export default function InternoDashboard({ onBack }: Props) {
           <div className="space-y-6 max-w-7xl mx-auto">
             {/* Top Row */}
             <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-              <div className="space-y-6">
-                <div className="bg-[#242731] p-6 rounded-xl border border-slate-800">
-                  <p className="text-slate-400 text-sm font-medium mb-1">Leads Totais</p>
+              <div className="flex flex-col space-y-4">
+                <div className="bg-[#242731] p-6 rounded-xl border border-slate-800 text-center flex flex-col justify-center items-center">
+                  <p className="text-slate-400 text-sm font-medium mb-1 uppercase">Leads Totais</p>
                   <p className="text-4xl font-bold text-white">{displayTotalLeads}</p>
                 </div>
-                <div className="bg-[#242731] p-6 rounded-xl border border-slate-800">
-                  <p className="text-slate-400 text-sm font-medium mb-1 uppercase">Status Mais Quente</p>
-                  <p className="text-xl font-bold text-white">{displayHottestStatus}</p>
+                
+                <div className="text-center mt-4 mb-2">
+                  <p className="text-slate-400 text-sm font-medium uppercase">Status Mais Quente</p>
+                </div>
+
+                <div className="bg-[#242731] p-6 rounded-xl border border-slate-800 text-center flex flex-col justify-center items-center">
+                  <p className="text-slate-400 text-sm font-medium mb-1">Agendamento</p>
+                  <p className="text-4xl font-bold text-white">{displayAgendamentoCount}</p>
+                </div>
+
+                <div className="bg-[#242731] p-6 rounded-xl border border-slate-800 text-center flex flex-col justify-center items-center">
+                  <p className="text-slate-400 text-sm font-medium mb-1">Visitas</p>
+                  <p className="text-4xl font-bold text-white">{displayVisitaCount}</p>
                 </div>
               </div>
               
               <div className="lg:col-span-3 bg-[#242731] p-6 rounded-xl border border-slate-800">
                 <h3 className="text-sm font-medium text-slate-400 mb-4">Status</h3>
-                <div className="h-64">
+                <div className="h-[400px]">
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart data={displayStatusData}>
                       <CartesianGrid strokeDasharray="3 3" stroke="#334155" vertical={false} />
-                      <XAxis dataKey="name" stroke="#94a3b8" fontSize={12} tickLine={false} axisLine={false} />
+                      <XAxis dataKey="name" stroke="#94a3b8" fontSize={12} tickLine={false} axisLine={false} angle={-45} textAnchor="end" height={80} />
                       <YAxis stroke="#94a3b8" fontSize={12} tickLine={false} axisLine={false} />
                       <Tooltip content={<CustomTooltip />} />
                       <Bar dataKey="value" fill="#3b82f6" radius={[4, 4, 0, 0]} />
@@ -259,25 +367,25 @@ export default function InternoDashboard({ onBack }: Props) {
               <div className="bg-[#242731] p-6 rounded-xl border border-slate-800">
                 <h3 className="text-sm font-medium text-slate-400 mb-4">Funil Status Atual</h3>
                 <div className="h-80">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <FunnelChart>
-                      <Tooltip content={<CustomTooltip />} />
-                      <Funnel
-                        dataKey="value"
-                        data={displayFunnelData}
-                        isAnimationActive
-                      >
-                        <LabelList position="right" fill="#cbd5e1" stroke="none" dataKey="name" fontSize={12} />
-                        {displayFunnelData.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={entry.fill} />
-                        ))}
-                      </Funnel>
-                    </FunnelChart>
-                  </ResponsiveContainer>
+                  <CustomFunnel data={displayFunnelData} total={totalLeads || 1551} />
                 </div>
               </div>
-              <div className="bg-[#242731] p-6 rounded-xl border border-slate-800 flex items-center justify-center">
-                <p className="text-slate-500">Gráfico Secundário</p>
+              <div className="bg-[#242731] p-6 rounded-xl border border-slate-800">
+                <h3 className="text-sm font-medium text-slate-400 mb-4">Evolução de Status</h3>
+                <div className="h-80">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={displayStackedStatusData}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#334155" vertical={false} />
+                      <XAxis dataKey="status" stroke="#94a3b8" fontSize={12} tickLine={false} axisLine={false} angle={-45} textAnchor="end" height={80} />
+                      <YAxis stroke="#94a3b8" fontSize={12} tickLine={false} axisLine={false} />
+                      <Tooltip content={<CustomTooltip />} />
+                      <Legend wrapperStyle={{ fontSize: '12px', color: '#94a3b8' }} verticalAlign="top" height={36} />
+                      {displayAvailableMonths.map((month, idx) => (
+                        <Bar key={month} dataKey={month} stackId="a" fill={['#3b82f6', '#f59e0b', '#10b981', '#8b5cf6', '#ec4899'][idx % 5]} />
+                      ))}
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
               </div>
             </div>
 
@@ -286,16 +394,16 @@ export default function InternoDashboard({ onBack }: Props) {
               <h3 className="text-sm font-medium text-slate-400 mb-4">Evolução de Leads por Empreendimento</h3>
               <div className="h-64">
                 <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={mockLineData}>
+                  <LineChart data={displayLineData}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#334155" vertical={false} />
                     <XAxis dataKey="date" stroke="#94a3b8" fontSize={12} tickLine={false} axisLine={false} />
                     <YAxis stroke="#94a3b8" fontSize={12} tickLine={false} axisLine={false} />
                     <Tooltip content={<CustomTooltip />} />
                     <Legend wrapperStyle={{ fontSize: '12px', color: '#94a3b8' }} />
-                    <Line type="monotone" dataKey="verter" name="Verter Cambuí" stroke="#3b82f6" strokeWidth={2} dot={false} />
-                    <Line type="monotone" dataKey="casaDaMata" name="Casa da Mata" stroke="#f59e0b" strokeWidth={2} dot={false} />
-                    <Line type="monotone" dataKey="natus" name="Natus Home" stroke="#10b981" strokeWidth={2} dot={false} />
-                    <Line type="monotone" dataKey="insigna" name="Insigna Península" stroke="#8b5cf6" strokeWidth={2} dot={false} />
+                    <Line type="monotone" dataKey="Verter Cambuí" stroke="#3b82f6" strokeWidth={2} dot={false} />
+                    <Line type="monotone" dataKey="Casa da Mata" stroke="#f59e0b" strokeWidth={2} dot={false} />
+                    <Line type="monotone" dataKey="Natus Home" stroke="#10b981" strokeWidth={2} dot={false} />
+                    <Line type="monotone" dataKey="Insigna Península" stroke="#8b5cf6" strokeWidth={2} dot={false} />
                   </LineChart>
                 </ResponsiveContainer>
               </div>
@@ -307,7 +415,7 @@ export default function InternoDashboard({ onBack }: Props) {
                 <h3 className="text-sm font-medium text-slate-400 mb-4">Origem</h3>
                 <div className="h-64">
                   <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={mockOriginData} layout="vertical">
+                    <BarChart data={displayOriginData} layout="vertical">
                       <CartesianGrid strokeDasharray="3 3" stroke="#334155" horizontal={false} />
                       <XAxis type="number" stroke="#94a3b8" fontSize={12} tickLine={false} axisLine={false} />
                       <YAxis dataKey="name" type="category" stroke="#94a3b8" fontSize={12} tickLine={false} axisLine={false} width={80} />
@@ -329,7 +437,7 @@ export default function InternoDashboard({ onBack }: Props) {
                       </tr>
                     </thead>
                     <tbody>
-                      {mockCancelReasons.map((item, idx) => (
+                      {displayCancelReasons.map((item, idx) => (
                         <tr key={idx} className="border-b border-slate-800/50 hover:bg-[#1a1c23]/50">
                           <td className="px-4 py-3 font-medium">{item.reason}</td>
                           <td className="px-4 py-3 text-right text-blue-400">{item.count}</td>
@@ -347,7 +455,7 @@ export default function InternoDashboard({ onBack }: Props) {
                 <h3 className="text-sm font-medium text-slate-400 mb-4">Leads por Corretor</h3>
                 <div className="h-64">
                   <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={mockBrokerLeads} layout="vertical">
+                    <BarChart data={displayBrokerLeads} layout="vertical">
                       <CartesianGrid strokeDasharray="3 3" stroke="#334155" horizontal={false} />
                       <XAxis type="number" stroke="#94a3b8" fontSize={12} tickLine={false} axisLine={false} />
                       <YAxis dataKey="name" type="category" stroke="#94a3b8" fontSize={10} tickLine={false} axisLine={false} width={120} />
@@ -358,18 +466,12 @@ export default function InternoDashboard({ onBack }: Props) {
                 </div>
               </div>
               <div className="space-y-4">
-                <div className="bg-[#242731] p-4 rounded-xl border border-slate-800 text-center">
-                  <p className="text-slate-400 text-xs font-medium mb-1">Tayumi</p>
-                  <p className="text-2xl font-bold text-white">449</p>
-                </div>
-                <div className="bg-[#242731] p-4 rounded-xl border border-slate-800 text-center">
-                  <p className="text-slate-400 text-xs font-medium mb-1">Fabio Binotti</p>
-                  <p className="text-2xl font-bold text-white">488</p>
-                </div>
-                <div className="bg-[#242731] p-4 rounded-xl border border-slate-800 text-center">
-                  <p className="text-slate-400 text-xs font-medium mb-1">Stand Virtual</p>
-                  <p className="text-2xl font-bold text-white">1.040</p>
-                </div>
+                {displayBrokerLeads.slice(0, 3).map((broker, idx) => (
+                  <div key={idx} className="bg-[#242731] p-4 rounded-xl border border-slate-800 text-center">
+                    <p className="text-slate-400 text-xs font-medium mb-1">{broker.name}</p>
+                    <p className="text-2xl font-bold text-white">{broker.value}</p>
+                  </div>
+                ))}
               </div>
             </div>
           </div>
