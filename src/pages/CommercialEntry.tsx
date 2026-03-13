@@ -7,7 +7,7 @@ import { Project, SaleRecord, PipelineRecord, City, PROJECTS_BY_CITY, Commercial
 import { supabase } from '../lib/supabase';
 
 export default function CommercialEntry() {
-  const { data, currentMonthData, selectedProject, updateCommercialData, addCommercialMetrics, setIsCommercialModalOpen, filteredCommercialRecords, deleteCommercialRecord, addCommercialRecords, addMonth, syncSupabaseData } = useExpense();
+  const { data, currentMonthData, selectedProject, updateCommercialData, addCommercialMetrics, setIsCommercialModalOpen, filteredCommercialRecords, deleteCommercialRecord, addCommercialRecords, addMonth, syncSupabaseData, selectedMonthId } = useExpense();
   
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isSyncing, setIsSyncing] = useState(false);
@@ -224,7 +224,7 @@ export default function CommercialEntry() {
             } as SaleRecord);
 
             if (!projectMetrics[currentProject]) {
-              projectMetrics[currentProject] = { vendas: 0, vgv: 0 };
+              projectMetrics[currentProject] = { vendas: 0, vgv: 0, leads: 0, visitasOn: 0, visitasOff: 0 };
             }
             projectMetrics[currentProject]!.vendas += qtde;
             projectMetrics[currentProject]!.vgv += vgvNominal;
