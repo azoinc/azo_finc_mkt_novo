@@ -46,7 +46,9 @@ export function useInternoDashboard(filters: DashboardFilters) {
         let startDate = new Date();
         let endDate = new Date();
 
-        if (filters.period === 'Últimos 30 dias') {
+        if (filters.period === 'Todo o período') {
+          startDate = new Date(2000, 0, 1); // A date far in the past
+        } else if (filters.period === 'Últimos 30 dias') {
           startDate.setDate(now.getDate() - 30);
         } else if (filters.period === 'Este mês') {
           startDate = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -58,7 +60,7 @@ export function useInternoDashboard(filters: DashboardFilters) {
           endDate = new Date(`${filters.endDate}T23:59:59.999`);
         } else {
           // Default fallback
-          startDate.setDate(now.getDate() - 30);
+          startDate = new Date(2000, 0, 1);
         }
 
         const startDateStr = startDate.toISOString();
@@ -147,13 +149,14 @@ export function useInternoDashboard(filters: DashboardFilters) {
             if (lead.data_criacao_cv) {
               // Create date object handling timezone issues by appending time if it's just a date string
               const dateObj = new Date(lead.data_criacao_cv.includes('T') ? lead.data_criacao_cv : `${lead.data_criacao_cv}T12:00:00Z`);
-              const date = dateObj.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+              const sortKey = dateObj.toISOString().split('T')[0]; // YYYY-MM-DD
+              const displayDate = dateObj.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit' });
               const emp = lead.empreendimento || 'Outros';
               
-              if (!lineDataMap[date]) {
-                lineDataMap[date] = { date };
+              if (!lineDataMap[sortKey]) {
+                lineDataMap[sortKey] = { date: displayDate, sortKey };
               }
-              lineDataMap[date][emp] = (lineDataMap[date][emp] || 0) + 1;
+              lineDataMap[sortKey][emp] = (lineDataMap[sortKey][emp] || 0) + 1;
             }
           });
 
@@ -164,9 +167,7 @@ export function useInternoDashboard(filters: DashboardFilters) {
           
           // Sort line data by date
           const sortedLineData = Object.values(lineDataMap).sort((a, b) => {
-            const [d1, m1] = a.date.split('/');
-            const [d2, m2] = b.date.split('/');
-            return new Date(2024, Number(m1)-1, Number(d1)).getTime() - new Date(2024, Number(m2)-1, Number(d2)).getTime();
+            return a.sortKey.localeCompare(b.sortKey);
           });
           setLineData(sortedLineData);
 
