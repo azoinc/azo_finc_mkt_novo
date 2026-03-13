@@ -13,6 +13,7 @@ interface Props {
 }
 
 const PRESETS = [
+  'Todo o período',
   'Últimos 30 dias',
   'Este mês',
   'Mês passado',
