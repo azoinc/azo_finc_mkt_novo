@@ -121,6 +121,7 @@ export function DateRangePicker({ value, onChange }: Props) {
 
   const handleApply = () => {
     if (tempRange.period === 'Personalizado' && (!tempRange.startDate || !tempRange.endDate)) {
+      alert('Selecione uma data de início e fim.');
       return; // Need both dates for custom
     }
     onChange(tempRange);
