@@ -179,26 +179,63 @@ export default function InternoDashboard({ onBack }: Props) {
       </header>
 
       {/* Filters Bar */}
-      <div className="bg-[#242731] border-b border-slate-800 px-6 py-3 flex items-center space-x-4">
+      <div className="bg-[#242731] border-b border-slate-800 px-6 py-3 flex items-center space-x-4 flex-wrap gap-y-2">
         <div className="flex items-center space-x-2 text-slate-400 bg-[#1a1c23] px-3 py-1.5 rounded-lg border border-slate-700">
           <Filter size={16} />
-          <select className="bg-transparent border-none outline-none text-sm text-slate-200">
-            <option>Selecionar período</option>
-            <option>Últimos 30 dias</option>
-            <option>Este mês</option>
+          <select 
+            className="bg-transparent border-none outline-none text-sm text-slate-200"
+            value={filters.period}
+            onChange={(e) => setFilters({ ...filters, period: e.target.value })}
+          >
+            <option value="Últimos 30 dias">Últimos 30 dias</option>
+            <option value="Este mês">Este mês</option>
+            <option value="Mês passado">Mês passado</option>
+            <option value="Personalizado">Personalizado...</option>
           </select>
         </div>
+        
+        {filters.period === 'Personalizado' && (
+          <div className="flex items-center space-x-2 text-slate-400 bg-[#1a1c23] px-3 py-1.5 rounded-lg border border-slate-700">
+            <input 
+              type="date" 
+              className="bg-transparent border-none outline-none text-sm text-slate-200 [color-scheme:dark]"
+              onChange={(e) => setFilters({ ...filters, startDate: e.target.value })}
+            />
+            <span>até</span>
+            <input 
+              type="date" 
+              className="bg-transparent border-none outline-none text-sm text-slate-200 [color-scheme:dark]"
+              onChange={(e) => setFilters({ ...filters, endDate: e.target.value })}
+            />
+          </div>
+        )}
+
         <div className="flex items-center space-x-2 text-slate-400 bg-[#1a1c23] px-3 py-1.5 rounded-lg border border-slate-700">
-          <select className="bg-transparent border-none outline-none text-sm text-slate-200">
-            <option>Empreendimento</option>
-            <option>Todos</option>
+          <select 
+            className="bg-transparent border-none outline-none text-sm text-slate-200"
+            value={filters.project}
+            onChange={(e) => setFilters({ ...filters, project: e.target.value })}
+          >
+            <option value="Todos">Todos os Empreendimentos</option>
+            <option value="Ipanema">Ipanema</option>
+            <option value="Casa da Mata">Casa da Mata</option>
+            <option value="Insigna">Insigna</option>
+            <option value="Verter">Verter</option>
+            <option value="Ares">Ares</option>
           </select>
         </div>
+        
         {activeTab === 'corretores' && (
           <div className="flex items-center space-x-2 text-slate-400 bg-[#1a1c23] px-3 py-1.5 rounded-lg border border-slate-700">
-            <select className="bg-transparent border-none outline-none text-sm text-slate-200">
-              <option>Corretor</option>
-              <option>Todos</option>
+            <select 
+              className="bg-transparent border-none outline-none text-sm text-slate-200"
+              value={filters.broker}
+              onChange={(e) => setFilters({ ...filters, broker: e.target.value })}
+            >
+              <option value="Todos">Todos os Corretores</option>
+              <option value="FABIO BINOTTI">Fabio Binotti</option>
+              <option value="LEILIANE TAYUMI">Leiliane Tayumi</option>
+              <option value="Antonio Escada">Antonio Escada</option>
             </select>
           </div>
         )}
