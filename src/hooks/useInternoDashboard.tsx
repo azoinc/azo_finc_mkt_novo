@@ -5,6 +5,8 @@ export interface DashboardFilters {
   period: string;
   project: string;
   broker: string;
+  startDate?: string;
+  endDate?: string;
 }
 
 export function useInternoDashboard(filters: DashboardFilters) {
@@ -31,11 +33,42 @@ export function useInternoDashboard(filters: DashboardFilters) {
       setError(null);
 
       try {
+        // 1. Determine Date Range
+        const now = new Date();
+        let startDate = new Date();
+        let endDate = new Date();
+
+        if (filters.period === 'Últimos 30 dias') {
+          startDate.setDate(now.getDate() - 30);
+        } else if (filters.period === 'Este mês') {
+          startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+        } else if (filters.period === 'Mês passado') {
+          startDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+          endDate = new Date(now.getFullYear(), now.getMonth(), 0);
+        } else if (filters.period === 'Personalizado' && filters.startDate && filters.endDate) {
+          startDate = new Date(filters.startDate);
+          endDate = new Date(filters.endDate);
+          // Set end date to end of day
+          endDate.setHours(23, 59, 59, 999);
+        }
+
+        const startDateStr = startDate.toISOString();
+        const endDateStr = endDate.toISOString();
+
         // 1. Fetch current leads status (for the first chart and total leads)
         // Adjust column names based on your actual 'leads' table schema
-        const { data: leadsData, error: leadsError } = await supabase
+        let leadsQuery = supabase
           .from('leads')
-          .select('status, id');
+          .select('status, id, created_at')
+          .gte('created_at', startDateStr)
+          .lte('created_at', endDateStr);
+
+        if (filters.project !== 'Todos') {
+          // Assuming there is a project_id or empreendimento column
+          // leadsQuery = leadsQuery.eq('empreendimento', filters.project);
+        }
+
+        const { data: leadsData, error: leadsError } = await leadsQuery;
 
         if (leadsError) throw leadsError;
 
