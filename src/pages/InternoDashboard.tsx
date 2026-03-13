@@ -134,6 +134,14 @@ const competenceOptions = generateCompetenceOptions();
 const CustomFunnel = ({ data, total }: { data: any[], total: number }) => {
   const colors = ['#3b82f6', '#f59e0b', '#10b981', '#8b5cf6', '#06b6d4', '#eab308', '#ec4899', '#f43f5e', '#84cc16'];
   
+  if (!data || data.length === 0) {
+    return (
+      <div className="w-full h-full flex items-center justify-center text-slate-500">
+        Nenhum dado encontrado para os filtros selecionados.
+      </div>
+    );
+  }
+
   return (
     <div className="relative w-full h-full flex items-center">
       {/* Labels on the left */}
@@ -202,20 +210,20 @@ export default function InternoDashboard({ onBack }: Props) {
     originData, cancelReasons, brokerLeads, lineData, totalLeads, hottestStatusData 
   } = useInternoDashboard(filters);
 
-  const displayStatusData = statusData.length > 0 ? statusData : mockStatusData;
-  const displayFunnelData = funnelData.length > 0 ? funnelData : mockFunnelData;
-  const displayStackedStatusData = stackedStatusData.length > 0 ? stackedStatusData : [];
-  const displayAvailableMonths = availableMonths.length > 0 ? availableMonths : [];
-  const displayBrokerTime = brokerTimeData.length > 0 ? brokerTimeData : mockBrokerTime;
-  const displayBrokerActions = brokerActionsData.length > 0 ? brokerActionsData : mockBrokerActions;
-  const displayOriginData = originData.length > 0 ? originData : mockOriginData;
-  const displayCancelReasons = cancelReasons.length > 0 ? cancelReasons : mockCancelReasons;
-  const displayBrokerLeads = brokerLeads.length > 0 ? brokerLeads : mockBrokerLeads;
-  const displayLineData = lineData.length > 0 ? lineData : mockLineData;
+  const displayStatusData = statusData;
+  const displayFunnelData = funnelData;
+  const displayStackedStatusData = stackedStatusData;
+  const displayAvailableMonths = availableMonths;
+  const displayBrokerTime = brokerTimeData;
+  const displayBrokerActions = brokerActionsData;
+  const displayOriginData = originData;
+  const displayCancelReasons = cancelReasons;
+  const displayBrokerLeads = brokerLeads;
+  const displayLineData = lineData;
   
-  const displayTotalLeads = totalLeads > 0 ? totalLeads.toLocaleString('pt-BR') : '1.551';
-  const displayVisitaCount = hottestStatusData.visita > 0 ? hottestStatusData.visita : 47;
-  const displayAgendamentoCount = hottestStatusData.agendamento > 0 ? hottestStatusData.agendamento : 20;
+  const displayTotalLeads = totalLeads.toLocaleString('pt-BR');
+  const displayVisitaCount = hottestStatusData.visita;
+  const displayAgendamentoCount = hottestStatusData.agendamento;
 
   return (
     <div className="min-h-screen bg-[#1a1c23] flex flex-col animate-in fade-in duration-500 font-sans text-slate-200">
@@ -304,20 +312,18 @@ export default function InternoDashboard({ onBack }: Props) {
           </select>
         </div>
         
-        {activeTab === 'corretores' && (
-          <div className="flex items-center space-x-2 text-slate-400 bg-[#1a1c23] px-3 py-1.5 rounded-lg border border-slate-700">
-            <select 
-              className="bg-transparent border-none outline-none text-sm text-slate-200"
-              value={filters.broker}
-              onChange={(e) => setFilters({ ...filters, broker: e.target.value })}
-            >
-              <option value="Todos">Todos os Corretores</option>
-              <option value="FABIO BINOTTI">Fabio Binotti</option>
-              <option value="LEILIANE TAYUMI">Leiliane Tayumi</option>
-              <option value="Antonio Escada">Antonio Escada</option>
-            </select>
-          </div>
-        )}
+        <div className="flex items-center space-x-2 text-slate-400 bg-[#1a1c23] px-3 py-1.5 rounded-lg border border-slate-700">
+          <select 
+            className="bg-transparent border-none outline-none text-sm text-slate-200"
+            value={filters.broker}
+            onChange={(e) => setFilters({ ...filters, broker: e.target.value })}
+          >
+            <option value="Todos">Todos os Corretores</option>
+            <option value="FABIO BINOTTI">Fabio Binotti</option>
+            <option value="LEILIANE TAYUMI">Leiliane Tayumi</option>
+            <option value="Antonio Escada">Antonio Escada</option>
+          </select>
+        </div>
       </div>
 
       <main className="flex-1 p-6 overflow-y-auto">
