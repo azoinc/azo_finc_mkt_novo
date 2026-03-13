@@ -54,10 +54,11 @@ export function useInternoDashboard(filters: DashboardFilters) {
           startDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
           endDate = new Date(now.getFullYear(), now.getMonth(), 0);
         } else if (filters.period === 'Personalizado' && filters.startDate && filters.endDate) {
-          startDate = new Date(filters.startDate);
-          endDate = new Date(filters.endDate);
-          // Set end date to end of day
-          endDate.setHours(23, 59, 59, 999);
+          startDate = new Date(`${filters.startDate}T00:00:00`);
+          endDate = new Date(`${filters.endDate}T23:59:59.999`);
+        } else {
+          // Default fallback
+          startDate.setDate(now.getDate() - 30);
         }
 
         const startDateStr = startDate.toISOString();
@@ -179,10 +180,9 @@ export function useInternoDashboard(filters: DashboardFilters) {
           if (filters.project !== 'Todos') {
             funnelQuery = funnelQuery.eq('empreendimento', filters.project);
           }
-          // Note: If 'corretor' is added to the view, we can uncomment this:
-          // if (filters.broker !== 'Todos') {
-          //   funnelQuery = funnelQuery.eq('corretor', filters.broker);
-          // }
+          if (filters.broker !== 'Todos') {
+            funnelQuery = funnelQuery.eq('corretor', filters.broker);
+          }
           
           const { data: funnelViewData, error: funnelError } = await funnelQuery;
           
@@ -304,9 +304,18 @@ export function useInternoDashboard(filters: DashboardFilters) {
         }
 
         // 3. Fetch Broker Time (TMA)
-        const { data: tmaData, error: tmaError } = await supabase
+        let tmaQuery = supabase
           .from('view_tma_fila_atendimento')
           .select('*');
+          
+        if (filters.project !== 'Todos') {
+          tmaQuery = tmaQuery.eq('empreendimento', filters.project);
+        }
+        if (filters.broker !== 'Todos') {
+          tmaQuery = tmaQuery.eq('corretor', filters.broker);
+        }
+
+        const { data: tmaData, error: tmaError } = await tmaQuery;
 
         if (!tmaError && tmaData) {
           // Assuming columns like 'corretor' and 'tma_horas'
@@ -320,9 +329,18 @@ export function useInternoDashboard(filters: DashboardFilters) {
         }
 
         // 4. Fetch Broker Actions (Esforço)
-        const { data: actionsData, error: actionsError } = await supabase
+        let actionsQuery = supabase
           .from('view_esforco_corretor')
           .select('*');
+          
+        if (filters.project !== 'Todos') {
+          actionsQuery = actionsQuery.eq('empreendimento', filters.project);
+        }
+        if (filters.broker !== 'Todos') {
+          actionsQuery = actionsQuery.eq('corretor', filters.broker);
+        }
+
+        const { data: actionsData, error: actionsError } = await actionsQuery;
 
         if (!actionsError && actionsData) {
           // Assuming columns like 'corretor' and 'total_acoes'
