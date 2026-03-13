@@ -197,7 +197,7 @@ export default function InternoDashboard({ onBack }: Props) {
   const { signOut } = useAuth();
   const [activeTab, setActiveTab] = useState<'gerais' | 'corretores' | 'ads'>('gerais');
   const [filters, setFilters] = useState({ 
-    period: 'Últimos 30 dias', 
+    period: 'Todo o período', 
     project: 'Todos', 
     broker: 'Todos',
     competence: 'Atual',
