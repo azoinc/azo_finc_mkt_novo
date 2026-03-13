@@ -93,7 +93,7 @@ export default function DataEntry() {
     return null;
   };
 
-  const matchCategory = (str: string): { category: ExpenseCategory, type: 'Publicidade' | 'Stand' | 'Institucional' } | null => {
+  const matchCategory = (str: string): { category: ExpenseCategory, type: 'Publicidade' | 'Manutenção de Stand' | 'Institucional' | 'Produtos' } | null => {
     if (!str) return null;
     const normalized = normalizeString(str);
     
