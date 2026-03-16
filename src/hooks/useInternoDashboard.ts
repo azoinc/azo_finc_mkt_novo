@@ -109,7 +109,7 @@ export function useInternoDashboard(filters: DashboardFilters) {
         } else {
           let leadsQuery = supabase
             .from('leads')
-            .select('status_atual, id, lead_data_cad, origem, motivo_cancelamento, corretor, empreendimento')
+            .select('status_atual, id, lead_data_cad, origem, corretor, empreendimento')
             .gte('lead_data_cad', startDateStr)
             .lte('lead_data_cad', endDateStr);
 
