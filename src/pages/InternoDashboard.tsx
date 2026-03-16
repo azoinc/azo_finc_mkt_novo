@@ -207,7 +207,7 @@ export default function InternoDashboard({ onBack }: Props) {
 
   const { 
     loading, error, statusData, funnelData, stackedStatusData, availableMonths, brokerTimeData, brokerActionsData, 
-    originData, cancelReasons, brokerLeads, lineData, totalLeads, hottestStatusData 
+    originData, cancelReasons, brokerLeads, lineData, lineChartKeys, totalLeads, hottestStatusData 
   } = useInternoDashboard(filters);
 
   const displayStatusData = statusData;
@@ -220,6 +220,7 @@ export default function InternoDashboard({ onBack }: Props) {
   const displayCancelReasons = cancelReasons;
   const displayBrokerLeads = brokerLeads;
   const displayLineData = lineData;
+  const displayLineChartKeys = lineChartKeys;
   
   const displayTotalLeads = totalLeads.toLocaleString('pt-BR');
   const displayVisitaCount = hottestStatusData.visita;
@@ -400,17 +401,23 @@ export default function InternoDashboard({ onBack }: Props) {
               <h3 className="text-sm font-medium text-slate-400 mb-4">Evolução de Leads por Empreendimento</h3>
               <div className="h-64">
                 <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={displayLineData}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#334155" vertical={false} />
-                    <XAxis dataKey="date" stroke="#94a3b8" fontSize={12} tickLine={false} axisLine={false} />
-                    <YAxis stroke="#94a3b8" fontSize={12} tickLine={false} axisLine={false} />
-                    <Tooltip content={<CustomTooltip />} />
-                    <Legend wrapperStyle={{ fontSize: '12px', color: '#94a3b8' }} />
-                    <Line type="monotone" dataKey="Verter Cambuí" stroke="#3b82f6" strokeWidth={2} dot={false} />
-                    <Line type="monotone" dataKey="Casa da Mata" stroke="#f59e0b" strokeWidth={2} dot={false} />
-                    <Line type="monotone" dataKey="Natus Home" stroke="#10b981" strokeWidth={2} dot={false} />
-                    <Line type="monotone" dataKey="Insigna Península" stroke="#8b5cf6" strokeWidth={2} dot={false} />
-                  </LineChart>
+                    <LineChart data={displayLineData}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#334155" vertical={false} />
+                      <XAxis dataKey="date" stroke="#94a3b8" fontSize={12} tickLine={false} axisLine={false} />
+                      <YAxis stroke="#94a3b8" fontSize={12} tickLine={false} axisLine={false} />
+                      <Tooltip content={<CustomTooltip />} />
+                      <Legend wrapperStyle={{ fontSize: '12px', color: '#94a3b8' }} />
+                      {displayLineChartKeys.map((key, idx) => (
+                        <Line 
+                          key={key}
+                          type="monotone" 
+                          dataKey={key} 
+                          stroke={['#3b82f6', '#f59e0b', '#10b981', '#8b5cf6', '#ec4899', '#ef4444', '#14b8a6', '#f97316'][idx % 8]} 
+                          strokeWidth={2} 
+                          dot={false} 
+                        />
+                      ))}
+                    </LineChart>
                 </ResponsiveContainer>
               </div>
             </div>
@@ -464,20 +471,32 @@ export default function InternoDashboard({ onBack }: Props) {
                     <BarChart data={displayBrokerLeads} layout="vertical">
                       <CartesianGrid strokeDasharray="3 3" stroke="#334155" horizontal={false} />
                       <XAxis type="number" stroke="#94a3b8" fontSize={12} tickLine={false} axisLine={false} />
-                      <YAxis dataKey="name" type="category" stroke="#94a3b8" fontSize={10} tickLine={false} axisLine={false} width={120} />
+                      <YAxis dataKey="name" type="category" stroke="#94a3b8" fontSize={10} tickLine={false} axisLine={false} width={150} />
                       <Tooltip content={<CustomTooltip />} />
                       <Bar dataKey="value" fill="#3b82f6" radius={[0, 4, 4, 0]} />
                     </BarChart>
                   </ResponsiveContainer>
                 </div>
               </div>
-              <div className="space-y-4">
-                {displayBrokerLeads.slice(0, 3).map((broker, idx) => (
-                  <div key={idx} className="bg-[#242731] p-4 rounded-xl border border-slate-800 text-center">
-                    <p className="text-slate-400 text-xs font-medium mb-1">{broker.name}</p>
-                    <p className="text-2xl font-bold text-white">{broker.value}</p>
-                  </div>
-                ))}
+              <div className="space-y-4 flex flex-col justify-center">
+                <div className="bg-[#242731] p-4 rounded-xl border border-slate-800 text-center flex-1 flex flex-col justify-center">
+                  <p className="text-slate-400 text-sm font-medium mb-1">Tayumi</p>
+                  <p className="text-3xl font-bold text-white">
+                    {displayBrokerLeads.find(b => b.name.toUpperCase().includes('TAYUMI'))?.value || 0}
+                  </p>
+                </div>
+                <div className="bg-[#242731] p-4 rounded-xl border border-slate-800 text-center flex-1 flex flex-col justify-center">
+                  <p className="text-slate-400 text-sm font-medium mb-1">Fabio Binotti</p>
+                  <p className="text-3xl font-bold text-white">
+                    {displayBrokerLeads.find(b => b.name.toUpperCase().includes('FABIO BINOTTI'))?.value || 0}
+                  </p>
+                </div>
+                <div className="bg-[#242731] p-4 rounded-xl border border-slate-800 text-center flex-1 flex flex-col justify-center">
+                  <p className="text-slate-400 text-sm font-medium mb-1">Stand Virtual</p>
+                  <p className="text-3xl font-bold text-white">
+                    {displayBrokerLeads.find(b => b.name.toUpperCase().includes('STAND VIRTUAL'))?.value || 0}
+                  </p>
+                </div>
               </div>
             </div>
           </div>
