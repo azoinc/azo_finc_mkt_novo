@@ -262,15 +262,23 @@ export function useInternoDashboard(filters: DashboardFilters) {
             const funnelCounts: Record<string, Set<string>> = {};
             
             funnelViewData.forEach(row => {
-              // Try different possible column names
-              const etapa = row.etapa_visual || row.etapa || row.stage || 'Unknown';
-              const leadId = row.id_cv || row.id_lead || row.lead_id || row.id;
+              // Try different possible column names for ID
+              const possibleIdColumns = ['id_cv', 'id_lead', 'lead_id', 'id', 'cv_id', 'leadcv_id'];
+              const leadId = possibleIdColumns.find(col => row[col] !== undefined && row[col] !== null);
               
-              if (etapa && leadId) {
+              // Try different possible column names for stage
+              const possibleStageColumns = ['etapa_visual', 'etapa', 'stage', 'fase', 'status'];
+              const etapa = possibleStageColumns.find(col => row[col] !== undefined && row[col] !== null) || 'Unknown';
+              
+              console.log(`Row found - Stage: ${etapa}, ID column: ${leadId}, ID value: ${leadId ? row[leadId] : 'N/A'}`);
+              
+              if (etapa && leadId && row[leadId]) {
                 if (!funnelCounts[etapa]) {
                   funnelCounts[etapa] = new Set();
                 }
-                funnelCounts[etapa].add(leadId);
+                funnelCounts[etapa].add(row[leadId]);
+              } else {
+                console.warn('Missing required columns in funnel row:', row);
               }
             });
 
