@@ -405,6 +405,11 @@ export function useInternoDashboard(filters: DashboardFilters) {
       } catch (err: any) {
         console.error('Error fetching dashboard data:', err);
         setError(err.message || 'Erro ao carregar dados do dashboard');
+        
+        // Detailed error logging
+        if (err.details) console.error('Error details:', err.details);
+        if (err.hint) console.error('Error hint:', err.hint);
+        if (err.code) console.error('Error code:', err.code);
       } finally {
         setLoading(false);
       }
