@@ -407,10 +407,10 @@ export default function InternoDashboard({ onBack }: Props) {
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <div className="bg-[#242731] p-6 rounded-xl border border-slate-800">
                 <h3 className="text-sm font-medium text-white mb-4">Origem</h3>
-                <div className="h-64">
+                <div className="h-[300px]">
                   <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={displayOriginData.length > 0 ? displayOriginData : mockOriginData} margin={{ top: 20, right: 120, left: 120, bottom: 20 }}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#334155" horizontal={false} />
+                    <BarChart data={displayOriginData} margin={{ top: 20, right: 120, left: 120, bottom: 20 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
                       <XAxis type="number" stroke="#94a3b8" fontSize={12} tickLine={false} axisLine={false} />
                       <YAxis 
                         dataKey="name" 
@@ -457,10 +457,10 @@ export default function InternoDashboard({ onBack }: Props) {
             <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
               <div className="lg:col-span-3 bg-[#242731] p-6 rounded-xl border border-slate-800">
                 <h3 className="text-sm font-medium text-white mb-4">Leads por Corretor</h3>
-                <div className="h-64">
+                <div className="h-[300px]">
                   <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={displayBrokerLeads.length > 0 ? displayBrokerLeads : mockBrokerLeads} margin={{ top: 20, right: 120, left: 150, bottom: 20 }}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#334155" horizontal={false} />
+                    <BarChart data={displayBrokerLeads} margin={{ top: 20, right: 120, left: 150, bottom: 20 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
                       <XAxis type="number" stroke="#94a3b8" fontSize={12} tickLine={false} axisLine={false} />
                       <YAxis 
                         dataKey="name" 
