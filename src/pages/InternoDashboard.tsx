@@ -9,6 +9,7 @@ import { useInternoDashboard } from '../hooks/useInternoDashboard';
 import { DateRangePicker, DateRange } from '../components/DateRangePicker';
 import { SupabaseDebug } from '../components/SupabaseDebug';
 import { ColumnDebugger } from '../components/ColumnDebugger';
+import { DataPeriodTester } from '../components/DataPeriodTester';
 
 interface Props {
   onBack: () => void;
@@ -332,6 +333,7 @@ export default function InternoDashboard({ onBack }: Props) {
       <main className="flex-1 p-6 overflow-y-auto">
         <SupabaseDebug />
         <ColumnDebugger />
+        <DataPeriodTester />
         {activeTab === 'gerais' && (
           <div className="space-y-6 max-w-7xl mx-auto">
             {/* Top Row */}
