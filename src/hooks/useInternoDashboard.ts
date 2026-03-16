@@ -254,6 +254,7 @@ export function useInternoDashboard(filters: DashboardFilters) {
             }
           } else {
             console.error('Error fetching funnel data:', funnelError);
+            console.error('Funnel error details:', JSON.stringify(funnelError, null, 2));
             setFunnelData([]);
           }
 
