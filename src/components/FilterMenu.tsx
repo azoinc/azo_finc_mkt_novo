@@ -13,10 +13,14 @@ interface FilterMenuProps {
   onFiltersChange: (filters: any) => void;
 }
 
-const yearOptions = [
-  { value: '2024', label: '2024' },
-  { value: '2025', label: '2025' },
-];
+const getYearOptions = () => {
+  const currentYear = new Date().getFullYear();
+  const years = [];
+  for (let year = currentYear; year >= currentYear - 2; year--) {
+    years.push({ value: year.toString(), label: year.toString() });
+  }
+  return years;
+};
 
 const monthOptions = [
   { value: '01', label: 'Janeiro' },
@@ -43,12 +47,19 @@ export const FilterMenu: React.FC<FilterMenuProps> = ({ filters, onFiltersChange
   // Parse competence to get year and month
   const getCompetenceParts = () => {
     if (filters.competence === 'Atual') {
-      return { year: '2025', month: '12' };
+      const now = new Date();
+      const year = now.getFullYear().toString();
+      const month = String(now.getMonth() + 1).padStart(2, '0');
+      return { year, month, display: `${year}-${month}` };
     }
     if (filters.competence && filters.competence.length === 7) {
-      return { year: filters.competence.substring(0, 4), month: filters.competence.substring(5, 7) };
+      return { 
+        year: filters.competence.substring(0, 4), 
+        month: filters.competence.substring(5, 7),
+        display: filters.competence
+      };
     }
-    return { year: '', month: '' };
+    return { year: '', month: '', display: '' };
   };
 
   const competenceParts = getCompetenceParts();
@@ -99,7 +110,7 @@ export const FilterMenu: React.FC<FilterMenuProps> = ({ filters, onFiltersChange
           className="bg-transparent border-none outline-none text-sm text-slate-200 mr-2"
         >
           <option value="">Ano</option>
-          {yearOptions.map(opt => (
+          {getYearOptions().map(opt => (
             <option key={opt.value} value={opt.value}>{opt.label}</option>
           ))}
         </select>
