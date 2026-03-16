@@ -320,22 +320,12 @@ export default function InternoDashboard({ onBack }: Props) {
               </div>
               
               <div className="lg:col-span-3 bg-[#242731] p-6 rounded-xl border border-slate-800">
-                <h3 className="text-sm font-medium text-slate-400 mb-4">Status</h3>
-                <div className="h-[450px]">
+                <h3 className="text-sm font-medium text-white mb-4">Status</h3>
+                <div className="h-[400px]">
                   <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={displayStatusData} margin={{ top: 20, right: 30, left: 20, bottom: 100 }}>
+                    <BarChart data={displayStatusData}>
                       <CartesianGrid strokeDasharray="3 3" stroke="#334155" vertical={false} />
-                      <XAxis 
-                        dataKey="name" 
-                        stroke="#94a3b8" 
-                        fontSize={11} 
-                        tickLine={false} 
-                        axisLine={false} 
-                        angle={-45} 
-                        textAnchor="end" 
-                        height={120}
-                        interval={0}
-                      />
+                      <XAxis dataKey="name" stroke="#94a3b8" fontSize={12} tickLine={false} axisLine={false} />
                       <YAxis stroke="#94a3b8" fontSize={12} tickLine={false} axisLine={false} />
                       <Tooltip content={<CustomTooltip />} />
                       <Bar dataKey="value" fill="#3b82f6" radius={[4, 4, 0, 0]} />
@@ -348,36 +338,21 @@ export default function InternoDashboard({ onBack }: Props) {
             {/* Funnel Row */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <div className="bg-[#242731] p-6 rounded-xl border border-slate-800">
-                <h3 className="text-sm font-medium text-slate-400 mb-4">Funil Status Atual</h3>
+                <h3 className="text-sm font-medium text-white mb-4">Funil Status Atual</h3>
                 <div className="h-80">
                   <CustomFunnel data={displayFunnelData} total={totalLeads || 1551} />
                 </div>
               </div>
               <div className="bg-[#242731] p-6 rounded-xl border border-slate-800">
-                <h3 className="text-sm font-medium text-slate-400 mb-4">Evolução de Status</h3>
+                <h3 className="text-sm font-medium text-white mb-4">Evolução de Status</h3>
                 <div className="h-80">
                   <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={displayStackedStatusData} margin={{ top: 40, right: 30, left: 20, bottom: 80 }}>
+                    <BarChart data={displayStackedStatusData}>
                       <CartesianGrid strokeDasharray="3 3" stroke="#334155" vertical={false} />
-                      <XAxis 
-                        dataKey="status" 
-                        stroke="#94a3b8" 
-                        fontSize={11} 
-                        tickLine={false} 
-                        axisLine={false} 
-                        angle={-45} 
-                        textAnchor="end" 
-                        height={100}
-                        interval={0}
-                      />
+                      <XAxis dataKey="status" stroke="#94a3b8" fontSize={12} tickLine={false} axisLine={false} />
                       <YAxis stroke="#94a3b8" fontSize={12} tickLine={false} axisLine={false} />
                       <Tooltip content={<CustomTooltip />} />
-                      <Legend 
-                        wrapperStyle={{ fontSize: '11px', color: '#94a3b8', paddingTop: '10px' }} 
-                        verticalAlign="top" 
-                        height={36}
-                        iconSize={10}
-                      />
+                      <Legend wrapperStyle={{ fontSize: '12px', color: '#94a3b8' }} verticalAlign="top" height={36} />
                       {displayAvailableMonths.map((month, idx) => (
                         <Bar key={month} dataKey={month} stackId="a" fill={['#3b82f6', '#f59e0b', '#10b981', '#8b5cf6', '#ec4899'][idx % 5]} />
                       ))}
@@ -389,29 +364,15 @@ export default function InternoDashboard({ onBack }: Props) {
 
             {/* Line Chart Row */}
             <div className="bg-[#242731] p-6 rounded-xl border border-slate-800">
-              <h3 className="text-sm font-medium text-slate-400 mb-4">Evolução de Leads por Empreendimento</h3>
-              <div className="h-80">
+              <h3 className="text-sm font-medium text-white mb-4">Evolução de Leads por Empreendimento</h3>
+              <div className="h-64">
                 <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={displayLineData} margin={{ top: 40, right: 30, left: 20, bottom: 60 }}>
+                    <LineChart data={displayLineData}>
                       <CartesianGrid strokeDasharray="3 3" stroke="#334155" vertical={false} />
-                      <XAxis 
-                        dataKey="date" 
-                        stroke="#94a3b8" 
-                        fontSize={11} 
-                        tickLine={false} 
-                        axisLine={false}
-                        angle={-45}
-                        textAnchor="end"
-                        height={80}
-                      />
+                      <XAxis dataKey="date" stroke="#94a3b8" fontSize={12} tickLine={false} axisLine={false} />
                       <YAxis stroke="#94a3b8" fontSize={12} tickLine={false} axisLine={false} />
                       <Tooltip content={<CustomTooltip />} />
-                      <Legend 
-                        wrapperStyle={{ fontSize: '11px', color: '#94a3b8', paddingTop: '10px' }} 
-                        verticalAlign="top" 
-                        height={36}
-                        iconSize={10}
-                      />
+                      <Legend wrapperStyle={{ fontSize: '12px', color: '#94a3b8' }} />
                       {displayLineChartKeys.map((key, idx) => (
                         <Line 
                           key={key}
@@ -430,21 +391,13 @@ export default function InternoDashboard({ onBack }: Props) {
             {/* Bottom Row */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <div className="bg-[#242731] p-6 rounded-xl border border-slate-800">
-                <h3 className="text-sm font-medium text-slate-400 mb-4">Origem</h3>
-                <div className="h-80">
+                <h3 className="text-sm font-medium text-white mb-4">Origem</h3>
+                <div className="h-64">
                   <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={displayOriginData} layout="vertical" margin={{ top: 20, right: 30, left: 100, bottom: 20 }}>
+                    <BarChart data={displayOriginData} layout="vertical">
                       <CartesianGrid strokeDasharray="3 3" stroke="#334155" horizontal={false} />
                       <XAxis type="number" stroke="#94a3b8" fontSize={12} tickLine={false} axisLine={false} />
-                      <YAxis 
-                        dataKey="name" 
-                        type="category" 
-                        stroke="#94a3b8" 
-                        fontSize={11} 
-                        tickLine={false} 
-                        axisLine={false} 
-                        width={100}
-                      />
+                      <YAxis dataKey="name" type="category" stroke="#94a3b8" fontSize={12} tickLine={false} axisLine={false} width={80} />
                       <Tooltip content={<CustomTooltip />} />
                       <Bar dataKey="value" fill="#3b82f6" radius={[0, 4, 4, 0]} />
                     </BarChart>
@@ -453,7 +406,7 @@ export default function InternoDashboard({ onBack }: Props) {
               </div>
               
               <div className="bg-[#242731] p-6 rounded-xl border border-slate-800 overflow-hidden flex flex-col">
-                <h3 className="text-sm font-medium text-slate-400 mb-4">Motivo Cancelamento</h3>
+                <h3 className="text-sm font-medium text-white mb-4">Motivo Cancelamento</h3>
                 <div className="flex-1 overflow-auto">
                   <table className="w-full text-sm text-left">
                     <thead className="text-xs text-slate-400 uppercase bg-[#1a1c23]">
