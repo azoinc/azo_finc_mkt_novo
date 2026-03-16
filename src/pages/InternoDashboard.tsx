@@ -326,9 +326,13 @@ export default function InternoDashboard({ onBack }: Props) {
               
               <div className="lg:col-span-3 bg-[#242731] p-6 rounded-xl border border-slate-800">
                 <h3 className="text-sm font-medium text-white mb-4">Status</h3>
-                <div className="h-[500px]">
+                {/* Debug visual */}
+                <div className="mb-2 text-xs text-slate-500">
+                  Dados: {displayStatusData.length} itens | Primeiro: {displayStatusData[0]?.name || 'N/A'}
+                </div>
+                <div className="h-[600px]">
                   <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={displayStatusData} margin={{ top: 20, right: 120, left: 180, bottom: 20 }}>
+                    <BarChart data={displayStatusData} margin={{ top: 20, right: 150, left: 250, bottom: 20 }}>
                       <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
                       <XAxis type="number" stroke="#94a3b8" fontSize={12} tickLine={false} axisLine={false} />
                       <YAxis 
@@ -338,7 +342,7 @@ export default function InternoDashboard({ onBack }: Props) {
                         fontSize={12} 
                         tickLine={false} 
                         axisLine={false} 
-                        width={180}
+                        width={250}
                       />
                       <Tooltip content={<CustomTooltip />} />
                       <Bar dataKey="value" fill="#3b82f6" radius={[0, 4, 4, 0]}>
