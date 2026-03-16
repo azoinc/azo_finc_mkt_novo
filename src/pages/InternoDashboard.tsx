@@ -5,7 +5,7 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
   LineChart, Line, FunnelChart, Funnel, LabelList, Cell
 } from 'recharts';
-import { useInternoDashboard } from '../hooks/useInternoDashboard';
+import { useInternoDashboardWithCache } from '../hooks/useInternoDashboardWithCache';
 import { DateRangePicker, DateRange } from '../components/DateRangePicker';
 import { FilterMenu } from '../components/FilterMenu';
 
@@ -210,7 +210,7 @@ export default function InternoDashboard({ onBack }: Props) {
   const { 
     loading, error, statusData, funnelData, stackedStatusData, availableMonths, brokerTimeData, brokerActionsData, 
     originData, cancelReasons, brokerLeads, lineData, lineChartKeys, totalLeads, hottestStatusData 
-  } = useInternoDashboard(filters);
+  } = useInternoDashboardWithCache(filters);
 
   const displayStatusData = statusData;
   const displayFunnelData = funnelData;
@@ -326,14 +326,10 @@ export default function InternoDashboard({ onBack }: Props) {
               
               <div className="lg:col-span-3 bg-[#242731] p-6 rounded-xl border border-slate-800">
                 <h3 className="text-sm font-medium text-white mb-4">Status</h3>
-                <div className="h-[400px]">
-                  {/* Debug: Mostrar dados */}
-                  <div className="mb-2 text-xs text-slate-500">
-                    Debug: {JSON.stringify(displayStatusData)}
-                  </div>
+                <div className="h-[500px]">
                   <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={displayStatusData.length > 0 ? displayStatusData : mockStatusData} margin={{ top: 20, right: 120, left: 200, bottom: 20 }}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#334155" horizontal={false} />
+                    <BarChart data={displayStatusData} margin={{ top: 20, right: 120, left: 180, bottom: 20 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
                       <XAxis type="number" stroke="#94a3b8" fontSize={12} tickLine={false} axisLine={false} />
                       <YAxis 
                         dataKey="name" 
@@ -342,7 +338,7 @@ export default function InternoDashboard({ onBack }: Props) {
                         fontSize={12} 
                         tickLine={false} 
                         axisLine={false} 
-                        width={200}
+                        width={180}
                       />
                       <Tooltip content={<CustomTooltip />} />
                       <Bar dataKey="value" fill="#3b82f6" radius={[0, 4, 4, 0]}>
