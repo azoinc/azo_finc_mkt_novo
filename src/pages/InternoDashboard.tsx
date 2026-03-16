@@ -10,6 +10,7 @@ import { DateRangePicker, DateRange } from '../components/DateRangePicker';
 import { SupabaseDebug } from '../components/SupabaseDebug';
 import { ColumnDebugger } from '../components/ColumnDebugger';
 import { DataPeriodTester } from '../components/DataPeriodTester';
+import { TableStructureChecker } from '../components/TableStructureChecker';
 
 interface Props {
   onBack: () => void;
@@ -334,6 +335,7 @@ export default function InternoDashboard({ onBack }: Props) {
         <SupabaseDebug />
         <ColumnDebugger />
         <DataPeriodTester />
+        <TableStructureChecker />
         {activeTab === 'gerais' && (
           <div className="space-y-6 max-w-7xl mx-auto">
             {/* Top Row */}
