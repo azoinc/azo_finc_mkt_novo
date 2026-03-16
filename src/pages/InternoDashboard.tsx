@@ -7,6 +7,7 @@ import {
 } from 'recharts';
 import { useInternoDashboard } from '../hooks/useInternoDashboard';
 import { DateRangePicker, DateRange } from '../components/DateRangePicker';
+import { FilterMenu } from '../components/FilterMenu';
 
 interface Props {
   onBack: () => void;
@@ -286,45 +287,10 @@ export default function InternoDashboard({ onBack }: Props) {
           })}
         />
 
-        <div className="flex items-center space-x-2 text-slate-400 bg-[#1a1c23] px-3 py-1.5 rounded-lg border border-slate-700">
-          <select 
-            className="bg-transparent border-none outline-none text-sm text-slate-200"
-            value={filters.competence}
-            onChange={(e) => setFilters({ ...filters, competence: e.target.value })}
-          >
-            {competenceOptions.map(opt => (
-              <option key={opt.value} value={opt.value}>{opt.label}</option>
-            ))}
-          </select>
-        </div>
-
-        <div className="flex items-center space-x-2 text-slate-400 bg-[#1a1c23] px-3 py-1.5 rounded-lg border border-slate-700">
-          <select 
-            className="bg-transparent border-none outline-none text-sm text-slate-200"
-            value={filters.project}
-            onChange={(e) => setFilters({ ...filters, project: e.target.value })}
-          >
-            <option value="Todos">Todos os Empreendimentos</option>
-            <option value="Ipanema">Ipanema</option>
-            <option value="Casa da Mata">Casa da Mata</option>
-            <option value="Insigna">Insigna</option>
-            <option value="Verter">Verter</option>
-            <option value="Ares">Ares</option>
-          </select>
-        </div>
-        
-        <div className="flex items-center space-x-2 text-slate-400 bg-[#1a1c23] px-3 py-1.5 rounded-lg border border-slate-700">
-          <select 
-            className="bg-transparent border-none outline-none text-sm text-slate-200"
-            value={filters.broker}
-            onChange={(e) => setFilters({ ...filters, broker: e.target.value })}
-          >
-            <option value="Todos">Todos os Corretores</option>
-            <option value="FABIO BINOTTI">Fabio Binotti</option>
-            <option value="LEILIANE TAYUMI">Leiliane Tayumi</option>
-            <option value="Antonio Escada">Antonio Escada</option>
-          </select>
-        </div>
+        <FilterMenu 
+          filters={filters}
+          onFiltersChange={setFilters}
+        />
       </div>
 
       <main className="flex-1 p-6 overflow-y-auto">
