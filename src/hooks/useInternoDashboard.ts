@@ -49,20 +49,12 @@ export function useInternoDashboard(filters: DashboardFilters) {
           return;
         }
 
-        // Test basic connection
-        console.log('Testing Supabase connection...');
-        console.log('Supabase URL:', import.meta.env.VITE_SUPABASE_URL);
-        console.log('Supabase URL exists:', !!import.meta.env.VITE_SUPABASE_URL);
-        console.log('Supabase Key exists:', !!import.meta.env.VITE_SUPABASE_ANON_KEY);
-        
         const { data: testData, error: testError } = await supabase
           .from('leads')
           .select('count')
           .limit(1);
         
         if (testError) {
-          console.error('Supabase connection test failed:', testError);
-          console.error('Full error details:', JSON.stringify(testError, null, 2));
           setError(`Supabase connection failed: ${testError.message}`);
           setLoading(false);
           return;
@@ -406,13 +398,11 @@ export function useInternoDashboard(filters: DashboardFilters) {
             
             // If lead_id doesn't exist, try id_cv
             if (!snapshotData || snapshotData.length === 0) {
-              snapshotQuery = supabase
+              const result = await supabase
                 .from('view_lead_snapshot_mensal')
                 .select('status_final_mes, competencia_data, id_cv')
                 .in('id_cv', chunk);
-                
-              const result = await snapshotQuery;
-              snapshotData = result.data;
+              snapshotData = result.data as any[];
             }
               
             if (snapshotData) {

@@ -7,13 +7,6 @@ import {
 } from 'recharts';
 import { useInternoDashboard } from '../hooks/useInternoDashboard';
 import { DateRangePicker, DateRange } from '../components/DateRangePicker';
-import { SupabaseDebug } from '../components/SupabaseDebug';
-import { ColumnDebugger } from '../components/ColumnDebugger';
-import { SimpleDataTest } from '../components/SimpleDataTest';
-import { QuickDataCheck } from '../components/QuickDataCheck';
-import { DataPeriodTester } from '../components/DataPeriodTester';
-import { TableStructureChecker } from '../components/TableStructureChecker';
-import { PostgreSQLTest } from '../components/PostgreSQLTest';
 
 interface Props {
   onBack: () => void;
@@ -335,13 +328,6 @@ export default function InternoDashboard({ onBack }: Props) {
       </div>
 
       <main className="flex-1 p-6 overflow-y-auto">
-        <SupabaseDebug />
-        <ColumnDebugger />
-        <PostgreSQLTest />
-        <SimpleDataTest />
-        <QuickDataCheck />
-        <DataPeriodTester />
-        <TableStructureChecker />
         {activeTab === 'gerais' && (
           <div className="space-y-6 max-w-7xl mx-auto">
             {/* Top Row */}
