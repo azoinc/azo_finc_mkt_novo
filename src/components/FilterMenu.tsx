@@ -72,6 +72,8 @@ export const FilterMenu: React.FC<FilterMenuProps> = ({ filters, onFiltersChange
         
         {/* Year Selector */}
         <select
+          id="competence-year"
+          name="competence-year"
           value={competenceParts.year}
           onChange={(e) => {
             const year = e.target.value;
@@ -88,6 +90,8 @@ export const FilterMenu: React.FC<FilterMenuProps> = ({ filters, onFiltersChange
 
         {/* Month Selector */}
         <select
+          id="competence-month"
+          name="competence-month"
           value={competenceParts.month}
           onChange={(e) => {
             const month = e.target.value;
