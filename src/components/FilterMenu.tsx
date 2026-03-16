@@ -65,7 +65,7 @@ export const FilterMenu: React.FC<FilterMenuProps> = ({ filters, onFiltersChange
   const competenceParts = getCompetenceParts();
 
   return (
-    <div className="bg-[#242731] border-b border-slate-800 px-6 py-3 flex items-center space-x-4 flex-wrap gap-y-2 relative z-40">
+    <div className="flex items-center space-x-3">
       {/* Period Dropdown */}
       <div className="relative">
         <button

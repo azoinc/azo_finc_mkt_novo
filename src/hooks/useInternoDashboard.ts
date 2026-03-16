@@ -169,6 +169,22 @@ export function useInternoDashboard(filters: DashboardFilters) {
             console.log('Sample lead:', data[0]);
             console.log('Available empreendimentos:', [...new Set(data.map(item => item.empreendimento))]);
             console.log('Available corretores:', [...new Set(data.map(item => item.corretor))]);
+
+            // Process origin data
+            const originMap: Record<string, string> = { 'FB': 'Facebook', 'GE': 'Google', 'OU': 'Outros', 'SI': 'Website' };
+            const processedOriginData = Object.entries(
+              data.reduce((acc: Record<string, number>, item: any) => {
+                const origin = item.origem || 'Outros';
+                acc[origin] = (acc[origin] || 0) + 1;
+                return acc;
+              }, {})
+            ).map(([origin, count]) => ({
+              name: originMap[origin] || origin,
+              value: count as number
+            })).sort((a, b) => (b.value as number) - (a.value as number));
+            
+            setOriginData(processedOriginData);
+
             console.log('Available origens:', [...new Set(data.map(item => item.origem))]);
             console.log('Origem counts:', data.reduce((acc, item) => {
               acc[item.origem] = (acc[item.origem] || 0) + 1;
@@ -204,15 +220,23 @@ export function useInternoDashboard(filters: DashboardFilters) {
 
             // Origem Tratada
             let origin = lead.origem || 'Desconhecida';
-            const originLower = origin.toLowerCase();
-            if (originLower.includes('facebook') || originLower.includes('fb') || originLower.includes('instagram') || originLower.includes('ig') || originLower.includes('meta')) {
-              origin = 'Facebook';
-            } else if (originLower.includes('google') || originLower.includes('adwords')) {
-              origin = 'Google';
-            } else if (originLower.includes('site') || originLower.includes('organico') || originLower.includes('orgânico') || originLower.includes('seo')) {
-              origin = 'Site';
+            const originMap: Record<string, string> = { 'FB': 'Facebook', 'GE': 'Google', 'OU': 'Outros', 'SI': 'Website' };
+            
+            // Use o mapeamento direto primeiro
+            if (originMap[origin]) {
+              origin = originMap[origin];
             } else {
-              origin = 'Outros';
+              // Fallback para o tratamento baseado em texto
+              const originLower = origin.toLowerCase();
+              if (originLower.includes('facebook') || originLower.includes('fb') || originLower.includes('instagram') || originLower.includes('ig') || originLower.includes('meta')) {
+                origin = 'Facebook';
+              } else if (originLower.includes('google') || originLower.includes('adwords')) {
+                origin = 'Google';
+              } else if (originLower.includes('site') || originLower.includes('organico') || originLower.includes('orgânico') || originLower.includes('seo')) {
+                origin = 'Website';
+              } else {
+                origin = 'Outros';
+              }
             }
             originCounts[origin] = (originCounts[origin] || 0) + 1;
 

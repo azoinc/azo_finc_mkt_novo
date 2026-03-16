@@ -229,9 +229,10 @@ export default function InternoDashboard({ onBack }: Props) {
 
   return (
     <div className="min-h-screen bg-[#1a1c23] flex flex-col animate-in fade-in duration-500 font-sans text-slate-200">
-      {/* Header */}
-      <header className="bg-[#242731] border-b border-slate-800 px-6 py-4 flex items-center justify-between sticky top-0 z-50">
-        <div className="flex items-center space-x-4">
+      {/* Header - ALL IN ONE LINE */}
+      <header className="bg-[#242731] border-b border-slate-800 px-6 py-3 flex items-center justify-between sticky top-0 z-50">
+        {/* Left: Title + Filters */}
+        <div className="flex items-center space-x-4 flex-1">
           <button 
             onClick={onBack}
             className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-xl transition-colors"
@@ -240,61 +241,61 @@ export default function InternoDashboard({ onBack }: Props) {
             <ArrowLeft size={20} />
           </button>
           <h1 className="text-xl font-bold text-white">Dashboard Interno Mkt</h1>
+          
+          {/* Filters in same line */}
+          <div className="flex items-center space-x-3 border-l border-slate-700 pl-4">
+            <DateRangePicker 
+              value={{ period: filters.period, startDate: filters.startDate, endDate: filters.endDate }}
+              onChange={(range) => setFilters({ 
+                ...filters, 
+                period: range.period, 
+                startDate: range.startDate, 
+                endDate: range.endDate 
+              })}
+            />
+
+            <FilterMenu 
+              filters={filters}
+              onFiltersChange={setFilters}
+            />
+          </div>
         </div>
         
-        <button
-          onClick={signOut}
-          className="flex items-center space-x-2 text-slate-400 hover:text-rose-500 transition-colors px-3 py-2 rounded-xl hover:bg-rose-500/10 print:always-visible"
-        >
-          <LogOut size={18} />
-          <span className="font-medium text-sm">Sair</span>
-        </button>
-      </header>
+        {/* Right: Tabs + Exit */}
+        <div className="flex items-center space-x-4">
+          <div className="flex bg-[#1a1c23] p-1 rounded-xl print:always-visible">
+            <button
+              onClick={() => setActiveTab('gerais')}
+              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors flex items-center space-x-2 ${activeTab === 'gerais' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-white'}`}
+            >
+              <BarChart3 size={14} />
+              <span>Resultados</span>
+            </button>
+            <button
+              onClick={() => setActiveTab('corretores')}
+              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors flex items-center space-x-2 ${activeTab === 'corretores' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-white'}`}
+            >
+              <Users size={14} />
+              <span>Corretores</span>
+            </button>
+            <button
+              onClick={() => setActiveTab('ads')}
+              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors flex items-center space-x-2 ${activeTab === 'ads' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-white'}`}
+            >
+              <Megaphone size={14} />
+              <span>Mídia</span>
+            </button>
+          </div>
 
-      {/* Filters Bar - BETWEEN TITLE AND TABS */}
-      <div className="bg-[#242731] border-b border-slate-800 px-6 py-3 flex items-center space-x-4 flex-wrap gap-y-2 relative z-40">
-        <DateRangePicker 
-          value={{ period: filters.period, startDate: filters.startDate, endDate: filters.endDate }}
-          onChange={(range) => setFilters({ 
-            ...filters, 
-            period: range.period, 
-            startDate: range.startDate, 
-            endDate: range.endDate 
-          })}
-        />
-
-        <FilterMenu 
-          filters={filters}
-          onFiltersChange={setFilters}
-        />
-      </div>
-
-      {/* Tabs Bar - MOVED TO RIGHT SIDE */}
-      <div className="bg-[#242731] border-b border-slate-800 px-6 py-3 flex items-center justify-end space-x-4">
-        <div className="flex bg-[#1a1c23] p-1 rounded-xl print:always-visible">
           <button
-            onClick={() => setActiveTab('gerais')}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center space-x-2 ${activeTab === 'gerais' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-white'}`}
+            onClick={signOut}
+            className="flex items-center space-x-2 text-slate-400 hover:text-rose-500 transition-colors px-3 py-2 rounded-xl hover:bg-rose-500/10 print:always-visible"
           >
-            <BarChart3 size={16} />
-            <span>Resultados Gerais</span>
-          </button>
-          <button
-            onClick={() => setActiveTab('corretores')}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center space-x-2 ${activeTab === 'corretores' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-white'}`}
-          >
-            <Users size={16} />
-            <span>Corretores</span>
-          </button>
-          <button
-            onClick={() => setActiveTab('ads')}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center space-x-2 ${activeTab === 'ads' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-white'}`}
-          >
-            <Megaphone size={16} />
-            <span>Mídia Paga</span>
+            <LogOut size={18} />
+            <span className="font-medium text-sm">Sair</span>
           </button>
         </div>
-      </div>
+      </header>
 
       <main className="flex-1 p-6 overflow-y-auto">
         {activeTab === 'gerais' && (
