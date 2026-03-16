@@ -334,15 +334,25 @@ export default function InternoDashboard({ onBack }: Props) {
                 <div className="mb-2 text-xs text-slate-500">
                   Debug: {JSON.stringify(displayStatusData.slice(0, 2))}
                 </div>
-                {/* Gráfico Horizontal do ZERO */}
+                {/* Gráfico SEM layout horizontal - usa eixos invertidos */}
                 <div className="w-full" style={{ height: '500px', border: '1px solid red' }}>
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart 
                       data={displayStatusData}
-                      layout="horizontal"
-                      margin={{ top: 20, right: 120, left: 200, bottom: 20 }}
+                      margin={{ top: 20, right: 20, left: 200, bottom: 50 }}
                     >
                       <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
+                      {/* Eixo Y (vertical) mostra os nomes */}
+                      <YAxis 
+                        dataKey="name" 
+                        type="category" 
+                        stroke="#94a3b8" 
+                        fontSize={12} 
+                        tickLine={false} 
+                        axisLine={false} 
+                        width={200}
+                      />
+                      {/* Eixo X (horizontal) mostra os valores */}
                       <XAxis 
                         type="number" 
                         stroke="#94a3b8" 
@@ -350,24 +360,15 @@ export default function InternoDashboard({ onBack }: Props) {
                         tickLine={false} 
                         axisLine={false} 
                       />
-                      <YAxis 
-                        type="category" 
-                        dataKey="name" 
-                        stroke="#94a3b8" 
-                        fontSize={12} 
-                        tickLine={false} 
-                        axisLine={false} 
-                        width={200}
-                      />
                       <Tooltip content={<CustomTooltip />} />
                       <Bar 
                         dataKey="value" 
                         fill="#3b82f6" 
-                        radius={[0, 4, 4, 0]}
+                        radius={[4, 4, 0, 0]}
                       >
                         <LabelList 
                           dataKey="value" 
-                          position="right" 
+                          position="top" 
                           fill="#ffffff" 
                           fontSize={12} 
                           fontWeight="bold" 
