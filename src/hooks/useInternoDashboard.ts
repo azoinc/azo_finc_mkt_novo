@@ -76,7 +76,7 @@ export function useInternoDashboard(filters: DashboardFilters) {
         let endDate = new Date();
 
         if (filters.period === 'Todo o período') {
-          startDate = new Date(2025, 11, 1); // December 1, 2025
+          startDate = new Date(2025, 11, 1); // December 1, 2025 - Data correta!
         } else if (filters.period === 'Últimos 30 dias') {
           startDate.setDate(now.getDate() - 30);
         } else if (filters.period === 'Este mês') {
@@ -96,18 +96,24 @@ export function useInternoDashboard(filters: DashboardFilters) {
           const y = date.getFullYear();
           const m = String(date.getMonth() + 1).padStart(2, '0');
           const d = String(date.getDate()).padStart(2, '0');
-          return `${y}/${m}/${d}`;  // Changed to YYYY/MM/DD format
+          return `${y}-${m}-${d}`;  // Try ISO format YYYY-MM-DD
         };
 
         const formatDateForQuery = (date: Date) => {
           const y = date.getFullYear();
           const m = String(date.getMonth() + 1).padStart(2, '0');
           const d = String(date.getDate()).padStart(2, '0');
-          return `${y}/${m}/${d}`;  // YYYY/MM/DD format for Supabase queries
+          return `${y}-${m}-${d}`;  // Try ISO format YYYY-MM-DD
         };
 
         const startDateStr = formatYYYYMMDD(startDate);
         const endDateStr = formatYYYYMMDD(endDate);
+
+        console.log('=== DEBUG DATE RANGE ===');
+        console.log('Period:', filters.period);
+        console.log('Start Date:', startDate, '->', startDateStr);
+        console.log('End Date:', endDate, '->', endDateStr);
+        console.log('========================');
 
         // 1. Fetch current leads status (for the first chart and total leads)
         // Adjust column names based on your actual 'leads' table schema
@@ -142,12 +148,12 @@ export function useInternoDashboard(filters: DashboardFilters) {
             empreendimento: item.empreendimento
           })) || [];
         } else {
-          // Try different column names for leads table
+          // Use correct column names from leads table
           let leadsQuery = supabase
             .from('leads')
             .select('status_atual, id_cv, data_criacao_cv, origem, motivo_cancelamento, corretor, empreendimento')
-            .gte('data_criacao_cv', startDateStr)
-            .lte('data_criacao_cv', endDateStr);
+            .gte('data_criacao_cv', formatDateForQuery(startDate))
+            .lte('data_criacao_cv', formatDateForQuery(endDate));
 
           if (filters.project !== 'Todos') {
             leadsQuery = leadsQuery.eq('empreendimento', filters.project);
@@ -158,72 +164,20 @@ export function useInternoDashboard(filters: DashboardFilters) {
 
           const { data, error } = await leadsQuery;
           
-          // If error with column names, try fallback with different names
-          if (error && error.code === '42703') {
-            console.log('Trying fallback column names for leads table...');
-            const fallbackQuery = supabase
-              .from('leads')
-              .select('*')  // Get all columns to see structure
-              .gte('created_at', formatDateForQuery(startDate))  // YYYY/MM/DD format
-              .lte('created_at', formatDateForQuery(endDate))  // YYYY/MM/DD format
-              .limit(1);
-            
-            const { data: fallbackData, error: fallbackError } = await fallbackQuery;
-            
-            if (!fallbackError && fallbackData && fallbackData.length > 0) {
-              console.log('Leads table columns:', Object.keys(fallbackData[0]));
-              console.log('Sample row:', fallbackData[0]);
-              
-              // Now try to get data with correct column names
-              const columns = Object.keys(fallbackData[0]);
-              const idCol = columns.find(c => c.includes('id')) || 'id';
-              const dateCol = columns.find(c => c.includes('data') || c.includes('created')) || 'created_at';
-              const statusCol = columns.find(c => c.includes('status')) || 'status';
-              
-              let correctedQuery = supabase
-                .from('leads')
-                .select(`${statusCol}, ${idCol}, ${dateCol}, origem, motivo_cancelamento, corretor, empreendimento`)
-                .gte(dateCol, formatDateForQuery(startDate))
-                .lte(dateCol, formatDateForQuery(endDate));
-                
-              if (filters.project !== 'Todos') {
-                correctedQuery = correctedQuery.eq('empreendimento', filters.project);
-              }
-              if (filters.broker !== 'Todos') {
-                correctedQuery = correctedQuery.eq('corretor', filters.broker);
-              }
-              
-              const { data: correctedData, error: correctedError } = await correctedQuery;
-              
-              if (!correctedError && correctedData) {
-                leadsData = correctedData.map(item => ({
-                  status_atual: item[statusCol],
-                  id: item[idCol],
-                  lead_data_cad: item[dateCol],
-                  origem: item.origem,
-                  motivo_cancelamento: item.motivo_cancelamento,
-                  corretor: item.corretor,
-                  empreendimento: item.empreendimento
-                }));
-              } else {
-                throw correctedError || new Error('Failed to fetch leads with corrected columns');
-              }
-            } else {
-              throw error || new Error('Failed to get leads table structure');
-            }
-          } else if (error) {
+          if (error) {
+            console.error('Error fetching leads data:', error);
             throw error;
-          } else {
-            leadsData = data?.map(item => ({
-              status_atual: item.status_atual,
-              id: item.lead_id,
-              lead_data_cad: item.safra_data,
-              origem: item.origem,
-              motivo_cancelamento: item.motivo_cancelamento,
-              corretor: item.corretor,
-              empreendimento: item.empreendimento
-            })) || [];
           }
+          
+          leadsData = data?.map(item => ({
+            status_atual: item.status_atual,
+            id: item.id_cv,  // Correct column name
+            lead_data_cad: item.data_criacao_cv,  // Correct column name
+            origem: item.origem,
+            motivo_cancelamento: item.motivo_cancelamento,
+            corretor: item.corretor,
+            empreendimento: item.empreendimento
+          })) || [];
         }
 
         if (leadsData) {
@@ -310,9 +264,7 @@ export function useInternoDashboard(filters: DashboardFilters) {
           try {
             let funnelQuery = supabase
               .from('view_funil_maximo_com_total')
-              .select('*')
-              .gte('safra_data', formatDateForQuery(startDate))  // Use YYYY/MM/DD format
-              .lte('safra_data', formatDateForQuery(endDate));
+              .select('*');  // Remove date filters to see if there's any data
 
             if (filters.project !== 'Todos') {
               funnelQuery = funnelQuery.eq('empreendimento', filters.project);
@@ -327,10 +279,22 @@ export function useInternoDashboard(filters: DashboardFilters) {
               console.log('Funnel data received:', funnelViewData.length, 'rows');
               console.log('Funnel columns:', Object.keys(funnelViewData[0] || {}));
               
+              // Apply date filter only after getting data
+              let filteredData = funnelViewData;
+              if (filters.period !== 'Todo o período') {
+                filteredData = funnelViewData.filter(row => {
+                  if (!row.safra_data) return false;
+                  const rowDate = new Date(row.safra_data);
+                  return rowDate >= startDate && rowDate <= endDate;
+                });
+              }
+              
+              console.log('Filtered funnel data:', filteredData.length, 'rows');
+              
               // Simple approach: just count stages without worrying about unique IDs
               const stageCounts: Record<string, number> = {};
               
-              funnelViewData.forEach(row => {
+              filteredData.forEach(row => {
                 // Use the actual column names from the view
                 const etapa = row.etapa_visual || 'Unknown';
                 const leadId = row.lead_id;
@@ -409,33 +373,22 @@ export function useInternoDashboard(filters: DashboardFilters) {
           for (let i = 0; i < leadIds.length; i += chunkSize) {
             const chunk = leadIds.slice(i, i + chunkSize);
             
-            // Milestones - try different column names
+            // Milestones - use correct column names from lead_milestones table
             let milestonesQuery = supabase
               .from('lead_milestones')
-              .select('lead_id, para_fase')
+              .select('lead_id, para_nome')  // Use para_nome instead of para_fase
               .in('lead_id', chunk);
               
             let { data: milestonesData } = await milestonesQuery;
-            
-            // If lead_id doesn't exist, try id_cv
-            if (!milestonesData || milestonesData.length === 0) {
-              milestonesQuery = supabase
-                .from('lead_milestones')
-                .select('id_cv, para_fase')
-                .in('id_cv', chunk);
-                
-              const result = await milestonesQuery;
-              milestonesData = result.data;
-            }
               
             if (milestonesData) {
               milestonesData.forEach(m => {
-                const fase = m.para_fase?.toLowerCase() || '';
+                const fase = m.para_nome?.toLowerCase() || '';
                 let score = 0;
                 if (fase.includes('visita')) score = 2;
                 else if (fase.includes('agendamento') || fase.includes('agendado')) score = 1;
                 
-                const leadId = m.lead_id || m.id_cv;
+                const leadId = m.lead_id;
                 const currentScore = leadHottestStatus.get(leadId) || 0;
                 if (score > currentScore) {
                   leadHottestStatus.set(leadId, score);

@@ -11,6 +11,8 @@ import { SupabaseDebug } from '../components/SupabaseDebug';
 import { ColumnDebugger } from '../components/ColumnDebugger';
 import { DataPeriodTester } from '../components/DataPeriodTester';
 import { TableStructureChecker } from '../components/TableStructureChecker';
+import { SimpleDataTest } from '../components/SimpleDataTest';
+import { QuickDataCheck } from '../components/QuickDataCheck';
 
 interface Props {
   onBack: () => void;
@@ -334,6 +336,8 @@ export default function InternoDashboard({ onBack }: Props) {
       <main className="flex-1 p-6 overflow-y-auto">
         <SupabaseDebug />
         <ColumnDebugger />
+        <SimpleDataTest />
+        <QuickDataCheck />
         <DataPeriodTester />
         <TableStructureChecker />
         {activeTab === 'gerais' && (
