@@ -109,9 +109,9 @@ export function useInternoDashboard(filters: DashboardFilters) {
         if (filters.competence && filters.competence !== 'Atual') {
           let snapshotQuery = supabase
             .from('view_lead_snapshot_mensal')
-            .select('status_final_mes, id_cv, data_criacao_cv, origem, corretor, empreendimento')
-            .gte('data_criacao_cv', startDateStr)
-            .lte('data_criacao_cv', endDateStr)
+            .select('status_final_mes, lead_id, safra_data, origem, corretor, empreendimento')
+            .gte('safra_data', startDateStr)
+            .lte('safra_data', endDateStr)
             .eq('competencia_data', filters.competence);
 
           if (filters.project !== 'Todos') {
@@ -127,8 +127,8 @@ export function useInternoDashboard(filters: DashboardFilters) {
           // Map snapshot data to match leadsData structure for processing
           leadsData = data?.map(item => ({
             status_atual: item.status_final_mes,
-            id: item.id_cv,
-            lead_data_cad: item.data_criacao_cv,
+            id: item.lead_id,
+            lead_data_cad: item.safra_data,
             origem: item.origem,
             motivo_cancelamento: null, // Not available in snapshot view
             corretor: item.corretor,
@@ -137,9 +137,9 @@ export function useInternoDashboard(filters: DashboardFilters) {
         } else {
           let leadsQuery = supabase
             .from('leads')
-            .select('status_atual, id_cv, data_criacao_cv, origem, motivo_cancelamento, corretor, empreendimento')
-            .gte('data_criacao_cv', startDateStr)
-            .lte('data_criacao_cv', endDateStr);
+            .select('status_atual, lead_id, safra_data, origem, motivo_cancelamento, corretor, empreendimento')
+            .gte('safra_data', startDateStr)
+            .lte('safra_data', endDateStr);
 
           if (filters.project !== 'Todos') {
             leadsQuery = leadsQuery.eq('empreendimento', filters.project);
@@ -153,8 +153,8 @@ export function useInternoDashboard(filters: DashboardFilters) {
           
           leadsData = data?.map(item => ({
             status_atual: item.status_atual,
-            id: item.id_cv,
-            lead_data_cad: item.data_criacao_cv,
+            id: item.lead_id,
+            lead_data_cad: item.safra_data,
             origem: item.origem,
             motivo_cancelamento: item.motivo_cancelamento,
             corretor: item.corretor,
@@ -348,8 +348,8 @@ export function useInternoDashboard(filters: DashboardFilters) {
             // Milestones
             const { data: milestonesData } = await supabase
               .from('lead_milestones')
-              .select('id_cv, para_fase')
-              .in('id_cv', chunk);
+              .select('lead_id, para_fase')
+              .in('lead_id', chunk);
               
             if (milestonesData) {
               milestonesData.forEach(m => {
@@ -358,9 +358,9 @@ export function useInternoDashboard(filters: DashboardFilters) {
                 if (fase.includes('visita')) score = 2;
                 else if (fase.includes('agendamento') || fase.includes('agendado')) score = 1;
                 
-                const currentScore = leadHottestStatus.get(m.id_cv) || 0;
+                const currentScore = leadHottestStatus.get(m.lead_id) || 0;
                 if (score > currentScore) {
-                  leadHottestStatus.set(m.id_cv, score);
+                  leadHottestStatus.set(m.lead_id, score);
                 }
               });
             }
@@ -368,8 +368,8 @@ export function useInternoDashboard(filters: DashboardFilters) {
             // Snapshots
             const { data: snapshotData } = await supabase
               .from('view_lead_snapshot_mensal')
-              .select('status_final_mes, competencia_data, id_cv')
-              .in('id_cv', chunk);
+              .select('status_final_mes, competencia_data, lead_id')
+              .in('lead_id', chunk);
               
             if (snapshotData) {
               snapshotDataAll.push(...snapshotData);
@@ -410,8 +410,8 @@ export function useInternoDashboard(filters: DashboardFilters) {
             if (!statusMonths.has(monthStr)) {
               statusMonths.set(monthStr, new Set());
             }
-            if (row.id_cv) {
-              statusMonths.get(monthStr)!.add(row.id_cv);
+            if (row.lead_id) {
+              statusMonths.get(monthStr)!.add(row.lead_id);
             }
           });
 
