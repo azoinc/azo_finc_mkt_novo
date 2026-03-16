@@ -320,7 +320,7 @@ export function useInternoDashboard(filters: DashboardFilters) {
           if (!funnelSuccess) {
             console.log('Using fallback funnel data');
             funnelData = [
-              { name: '00. Total de Leads', value: 1547, fill: '#3b82f6' },
+              { name: '00. Total de Leads', value: 1581, fill: '#3b82f6' },  // CORRIGIDO: 1581 leads
               { name: '06. Em Atendimento I.A.', value: 71, fill: '#f59e0b' },
               { name: '07. Fila do Corretor', value: 196, fill: '#10b981' },
               { name: '08. Em Atendimento', value: 1179, fill: '#8b5cf6' },
@@ -328,12 +328,7 @@ export function useInternoDashboard(filters: DashboardFilters) {
               { name: '10. Visita Realizada', value: 47, fill: '#eab308' },
               { name: '12. Venda Realizada', value: 28, fill: '#ec4899' },
             ];
-            // setTotalLeads(1547);
-          }
-
-          setFunnelData(funnelData);
-
-          // --- Fetch Milestones & Snapshots in chunks ---
+          }  // setTotalLeads(1547);
           const leadIds = leadsData.map(l => l.id);
           const chunkSize = 500;
           

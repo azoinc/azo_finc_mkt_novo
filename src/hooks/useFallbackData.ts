@@ -1,6 +1,6 @@
 // Fallback data for when Supabase views are not accessible
 export const getFallbackFunnelData = () => [
-  { name: '00. Total de Leads', value: 1547, fill: '#3b82f6' },
+  { name: '00. Total de Leads', value: 1581, fill: '#3b82f6' },  // CORRIGIDO: 1581 leads
   { name: '06. Em Atendimento I.A.', value: 71, fill: '#f59e0b' },
   { name: '07. Fila do Corretor', value: 196, fill: '#10b981' },
   { name: '08. Em Atendimento', value: 1179, fill: '#8b5cf6' },
