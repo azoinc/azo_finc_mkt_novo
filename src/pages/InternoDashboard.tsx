@@ -321,11 +321,21 @@ export default function InternoDashboard({ onBack }: Props) {
               
               <div className="lg:col-span-3 bg-[#242731] p-6 rounded-xl border border-slate-800">
                 <h3 className="text-sm font-medium text-slate-400 mb-4">Status</h3>
-                <div className="h-[400px]">
+                <div className="h-[450px]">
                   <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={displayStatusData}>
+                    <BarChart data={displayStatusData} margin={{ top: 20, right: 30, left: 20, bottom: 100 }}>
                       <CartesianGrid strokeDasharray="3 3" stroke="#334155" vertical={false} />
-                      <XAxis dataKey="name" stroke="#94a3b8" fontSize={12} tickLine={false} axisLine={false} angle={-45} textAnchor="end" height={80} />
+                      <XAxis 
+                        dataKey="name" 
+                        stroke="#94a3b8" 
+                        fontSize={11} 
+                        tickLine={false} 
+                        axisLine={false} 
+                        angle={-45} 
+                        textAnchor="end" 
+                        height={120}
+                        interval={0}
+                      />
                       <YAxis stroke="#94a3b8" fontSize={12} tickLine={false} axisLine={false} />
                       <Tooltip content={<CustomTooltip />} />
                       <Bar dataKey="value" fill="#3b82f6" radius={[4, 4, 0, 0]} />
@@ -347,12 +357,27 @@ export default function InternoDashboard({ onBack }: Props) {
                 <h3 className="text-sm font-medium text-slate-400 mb-4">Evolução de Status</h3>
                 <div className="h-80">
                   <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={displayStackedStatusData}>
+                    <BarChart data={displayStackedStatusData} margin={{ top: 40, right: 30, left: 20, bottom: 80 }}>
                       <CartesianGrid strokeDasharray="3 3" stroke="#334155" vertical={false} />
-                      <XAxis dataKey="status" stroke="#94a3b8" fontSize={12} tickLine={false} axisLine={false} angle={-45} textAnchor="end" height={80} />
+                      <XAxis 
+                        dataKey="status" 
+                        stroke="#94a3b8" 
+                        fontSize={11} 
+                        tickLine={false} 
+                        axisLine={false} 
+                        angle={-45} 
+                        textAnchor="end" 
+                        height={100}
+                        interval={0}
+                      />
                       <YAxis stroke="#94a3b8" fontSize={12} tickLine={false} axisLine={false} />
                       <Tooltip content={<CustomTooltip />} />
-                      <Legend wrapperStyle={{ fontSize: '12px', color: '#94a3b8' }} verticalAlign="top" height={36} />
+                      <Legend 
+                        wrapperStyle={{ fontSize: '11px', color: '#94a3b8', paddingTop: '10px' }} 
+                        verticalAlign="top" 
+                        height={36}
+                        iconSize={10}
+                      />
                       {displayAvailableMonths.map((month, idx) => (
                         <Bar key={month} dataKey={month} stackId="a" fill={['#3b82f6', '#f59e0b', '#10b981', '#8b5cf6', '#ec4899'][idx % 5]} />
                       ))}
@@ -365,14 +390,28 @@ export default function InternoDashboard({ onBack }: Props) {
             {/* Line Chart Row */}
             <div className="bg-[#242731] p-6 rounded-xl border border-slate-800">
               <h3 className="text-sm font-medium text-slate-400 mb-4">Evolução de Leads por Empreendimento</h3>
-              <div className="h-64">
+              <div className="h-80">
                 <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={displayLineData}>
+                    <LineChart data={displayLineData} margin={{ top: 40, right: 30, left: 20, bottom: 60 }}>
                       <CartesianGrid strokeDasharray="3 3" stroke="#334155" vertical={false} />
-                      <XAxis dataKey="date" stroke="#94a3b8" fontSize={12} tickLine={false} axisLine={false} />
+                      <XAxis 
+                        dataKey="date" 
+                        stroke="#94a3b8" 
+                        fontSize={11} 
+                        tickLine={false} 
+                        axisLine={false}
+                        angle={-45}
+                        textAnchor="end"
+                        height={80}
+                      />
                       <YAxis stroke="#94a3b8" fontSize={12} tickLine={false} axisLine={false} />
                       <Tooltip content={<CustomTooltip />} />
-                      <Legend wrapperStyle={{ fontSize: '12px', color: '#94a3b8' }} />
+                      <Legend 
+                        wrapperStyle={{ fontSize: '11px', color: '#94a3b8', paddingTop: '10px' }} 
+                        verticalAlign="top" 
+                        height={36}
+                        iconSize={10}
+                      />
                       {displayLineChartKeys.map((key, idx) => (
                         <Line 
                           key={key}
@@ -392,12 +431,20 @@ export default function InternoDashboard({ onBack }: Props) {
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <div className="bg-[#242731] p-6 rounded-xl border border-slate-800">
                 <h3 className="text-sm font-medium text-slate-400 mb-4">Origem</h3>
-                <div className="h-64">
+                <div className="h-80">
                   <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={displayOriginData} layout="vertical">
+                    <BarChart data={displayOriginData} layout="vertical" margin={{ top: 20, right: 30, left: 100, bottom: 20 }}>
                       <CartesianGrid strokeDasharray="3 3" stroke="#334155" horizontal={false} />
                       <XAxis type="number" stroke="#94a3b8" fontSize={12} tickLine={false} axisLine={false} />
-                      <YAxis dataKey="name" type="category" stroke="#94a3b8" fontSize={12} tickLine={false} axisLine={false} width={80} />
+                      <YAxis 
+                        dataKey="name" 
+                        type="category" 
+                        stroke="#94a3b8" 
+                        fontSize={11} 
+                        tickLine={false} 
+                        axisLine={false} 
+                        width={100}
+                      />
                       <Tooltip content={<CustomTooltip />} />
                       <Bar dataKey="value" fill="#3b82f6" radius={[0, 4, 4, 0]} />
                     </BarChart>
