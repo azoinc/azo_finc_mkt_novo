@@ -328,7 +328,7 @@ export default function InternoDashboard({ onBack }: Props) {
                 <h3 className="text-sm font-medium text-white mb-4">Status</h3>
                 <div className="h-[400px]">
                   <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={displayStatusData} layout="horizontal" margin={{ top: 20, right: 120, left: 200, bottom: 20 }}>
+                    <BarChart data={displayStatusData} margin={{ top: 20, right: 120, left: 200, bottom: 20 }}>
                       <CartesianGrid strokeDasharray="3 3" stroke="#334155" horizontal={false} />
                       <XAxis type="number" stroke="#94a3b8" fontSize={12} tickLine={false} axisLine={false} />
                       <YAxis 
@@ -409,7 +409,7 @@ export default function InternoDashboard({ onBack }: Props) {
                 <h3 className="text-sm font-medium text-white mb-4">Origem</h3>
                 <div className="h-64">
                   <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={displayOriginData} layout="horizontal" margin={{ top: 20, right: 120, left: 120, bottom: 20 }}>
+                    <BarChart data={displayOriginData} margin={{ top: 20, right: 120, left: 120, bottom: 20 }}>
                       <CartesianGrid strokeDasharray="3 3" stroke="#334155" horizontal={false} />
                       <XAxis type="number" stroke="#94a3b8" fontSize={12} tickLine={false} axisLine={false} />
                       <YAxis 
@@ -459,7 +459,7 @@ export default function InternoDashboard({ onBack }: Props) {
                 <h3 className="text-sm font-medium text-white mb-4">Leads por Corretor</h3>
                 <div className="h-64">
                   <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={displayBrokerLeads} layout="horizontal" margin={{ top: 20, right: 120, left: 150, bottom: 20 }}>
+                    <BarChart data={displayBrokerLeads} margin={{ top: 20, right: 120, left: 150, bottom: 20 }}>
                       <CartesianGrid strokeDasharray="3 3" stroke="#334155" horizontal={false} />
                       <XAxis type="number" stroke="#94a3b8" fontSize={12} tickLine={false} axisLine={false} />
                       <YAxis 
@@ -509,7 +509,7 @@ export default function InternoDashboard({ onBack }: Props) {
               <h3 className="text-sm font-medium text-white mb-4">Tempo Médio de Recepção do Lead (Horas)</h3>
               <div className="h-96">
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={displayBrokerTime} layout="horizontal" margin={{ top: 20, right: 120, left: 120, bottom: 20 }}>
+                  <BarChart data={displayBrokerTime} margin={{ top: 20, right: 120, left: 120, bottom: 20 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#334155" horizontal={false} />
                     <XAxis type="number" stroke="#94a3b8" fontSize={12} tickLine={false} axisLine={false} />
                     <YAxis 
@@ -534,7 +534,7 @@ export default function InternoDashboard({ onBack }: Props) {
               <h3 className="text-sm font-medium text-white mb-4">Ações no CV</h3>
               <div className="h-96">
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={displayBrokerActions} layout="horizontal" margin={{ top: 20, right: 120, left: 120, bottom: 20 }}>
+                  <BarChart data={displayBrokerActions} margin={{ top: 20, right: 120, left: 120, bottom: 20 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#334155" horizontal={false} />
                     <XAxis type="number" stroke="#94a3b8" fontSize={12} tickLine={false} axisLine={false} />
                     <YAxis 
