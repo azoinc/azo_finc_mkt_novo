@@ -176,8 +176,16 @@ export function useInternoDashboardWithCache(filters: DashboardFilters) {
           { name: 'Nona', value: 92 },
           { name: 'Marco Almeida', value: 58 }
         ],
-        lineData: [],
-        lineChartKeys: [],
+        lineData: [
+          { date: '01/12', verter: 10, casaDaMata: 5, natus: 2, insigna: 8 },
+          { date: '05/12', verter: 12, casaDaMata: 6, natus: 3, insigna: 9 },
+          { date: '10/12', verter: 15, casaDaMata: 8, natus: 4, insigna: 12 },
+          { date: '15/12', verter: 68, casaDaMata: 10, natus: 5, insigna: 15 },
+          { date: '20/12', verter: 18, casaDaMata: 12, natus: 6, insigna: 18 },
+          { date: '25/12', verter: 14, casaDaMata: 9, natus: 4, insigna: 14 },
+          { date: '30/12', verter: 20, casaDaMata: 15, natus: 8, insigna: 22 }
+        ],
+        lineChartKeys: ['Verter Cambuí', 'Casa da Mata', 'Natus', 'Insigna Peninsula'],
         totalLeads: 1547,
         hottestStatusData: { visita: 47, agendamento: 20 }
       };
@@ -205,6 +213,10 @@ export function useInternoDashboardWithCache(filters: DashboardFilters) {
       setLineChartKeys(mockData.lineChartKeys);
       setTotalLeads(mockData.totalLeads);
       setHottestStatusData(mockData.hottestStatusData);
+
+      // Garante que o total de leads seja exibido nos KPIs
+      console.log('📊 Total de Leads definido:', mockData.totalLeads);
+      console.log('📊 Status Data:', mockData.statusData);
 
       // Salva no cache
       saveCache(mockData);

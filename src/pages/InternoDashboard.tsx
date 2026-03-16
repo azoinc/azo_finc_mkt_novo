@@ -380,25 +380,25 @@ export default function InternoDashboard({ onBack }: Props) {
             {/* Line Chart Row */}
             <div className="bg-[#242731] p-6 rounded-xl border border-slate-800">
               <h3 className="text-sm font-medium text-white mb-4">Evolução de Leads por Empreendimento</h3>
-              <div className="h-64">
+              <div className="h-80">
                 <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={displayLineData}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#334155" vertical={false} />
-                      <XAxis dataKey="date" stroke="#94a3b8" fontSize={12} tickLine={false} axisLine={false} />
-                      <YAxis stroke="#94a3b8" fontSize={12} tickLine={false} axisLine={false} />
-                      <Tooltip content={<CustomTooltip />} />
-                      <Legend wrapperStyle={{ fontSize: '12px', color: '#94a3b8' }} />
-                      {displayLineChartKeys.map((key, idx) => (
-                        <Line 
-                          key={key}
-                          type="monotone" 
-                          dataKey={key} 
-                          stroke={['#3b82f6', '#f59e0b', '#10b981', '#8b5cf6', '#ec4899', '#ef4444', '#14b8a6', '#f97316'][idx % 8]} 
-                          strokeWidth={2} 
-                          dot={false} 
-                        />
-                      ))}
-                    </LineChart>
+                  <LineChart data={displayLineData}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#334155" vertical={false} />
+                    <XAxis dataKey="date" stroke="#94a3b8" fontSize={12} tickLine={false} axisLine={false} />
+                    <YAxis stroke="#94a3b8" fontSize={12} tickLine={false} axisLine={false} />
+                    <Tooltip content={<CustomTooltip />} />
+                    <Legend wrapperStyle={{ fontSize: '12px', color: '#94a3b8' }} />
+                    {displayLineChartKeys.map((key, idx) => (
+                      <Line 
+                        key={key}
+                        type="monotone" 
+                        dataKey={key} 
+                        stroke={['#3b82f6', '#f59e0b', '#10b981', '#8b5cf6', '#ec4899', '#ef4444', '#14b8a6', '#f97316'][idx % 8]} 
+                        strokeWidth={2} 
+                        dot={false} 
+                      />
+                    ))}
+                  </LineChart>
                 </ResponsiveContainer>
               </div>
             </div>
