@@ -326,25 +326,23 @@ export default function InternoDashboard({ onBack }: Props) {
               
               <div className="lg:col-span-3 bg-[#242731] p-6 rounded-xl border border-slate-800">
                 <h3 className="text-sm font-medium text-white mb-4">Status</h3>
-                <div className="h-[500px]">
+                <div className="h-[400px]">
                   <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={displayStatusData} margin={{ top: 30, right: 30, left: 20, bottom: 120 }}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#334155" vertical={false} />
-                      <XAxis 
+                    <BarChart data={displayStatusData} layout="horizontal" margin={{ top: 20, right: 120, left: 200, bottom: 20 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#334155" horizontal={false} />
+                      <XAxis type="number" stroke="#94a3b8" fontSize={12} tickLine={false} axisLine={false} />
+                      <YAxis 
                         dataKey="name" 
+                        type="category" 
                         stroke="#94a3b8" 
-                        fontSize={10} 
+                        fontSize={12} 
                         tickLine={false} 
                         axisLine={false} 
-                        angle={-45} 
-                        textAnchor="end" 
-                        height={120}
-                        interval={0}
+                        width={200}
                       />
-                      <YAxis stroke="#94a3b8" fontSize={12} tickLine={false} axisLine={false} />
                       <Tooltip content={<CustomTooltip />} />
-                      <Bar dataKey="value" fill="#3b82f6" radius={[4, 4, 0, 0]}>
-                        <LabelList dataKey="value" position="top" fill="#ffffff" fontSize={11} fontWeight="bold" />
+                      <Bar dataKey="value" fill="#3b82f6" radius={[0, 4, 4, 0]}>
+                        <LabelList dataKey="value" position="right" fill="#ffffff" fontSize={12} fontWeight="bold" />
                       </Bar>
                     </BarChart>
                   </ResponsiveContainer>
@@ -411,12 +409,22 @@ export default function InternoDashboard({ onBack }: Props) {
                 <h3 className="text-sm font-medium text-white mb-4">Origem</h3>
                 <div className="h-64">
                   <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={displayOriginData} layout="vertical">
+                    <BarChart data={displayOriginData} layout="horizontal" margin={{ top: 20, right: 120, left: 120, bottom: 20 }}>
                       <CartesianGrid strokeDasharray="3 3" stroke="#334155" horizontal={false} />
                       <XAxis type="number" stroke="#94a3b8" fontSize={12} tickLine={false} axisLine={false} />
-                      <YAxis dataKey="name" type="category" stroke="#94a3b8" fontSize={12} tickLine={false} axisLine={false} width={80} />
+                      <YAxis 
+                        dataKey="name" 
+                        type="category" 
+                        stroke="#94a3b8" 
+                        fontSize={12} 
+                        tickLine={false} 
+                        axisLine={false} 
+                        width={120}
+                      />
                       <Tooltip content={<CustomTooltip />} />
-                      <Bar dataKey="value" fill="#3b82f6" radius={[0, 4, 4, 0]} />
+                      <Bar dataKey="value" fill="#3b82f6" radius={[0, 4, 4, 0]}>
+                        <LabelList dataKey="value" position="right" fill="#ffffff" fontSize={11} fontWeight="bold" />
+                      </Bar>
                     </BarChart>
                   </ResponsiveContainer>
                 </div>
@@ -448,15 +456,25 @@ export default function InternoDashboard({ onBack }: Props) {
             {/* Brokers Row */}
             <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
               <div className="lg:col-span-3 bg-[#242731] p-6 rounded-xl border border-slate-800">
-                <h3 className="text-sm font-medium text-slate-400 mb-4">Leads por Corretor</h3>
+                <h3 className="text-sm font-medium text-white mb-4">Leads por Corretor</h3>
                 <div className="h-64">
                   <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={displayBrokerLeads} layout="vertical">
+                    <BarChart data={displayBrokerLeads} layout="horizontal" margin={{ top: 20, right: 120, left: 150, bottom: 20 }}>
                       <CartesianGrid strokeDasharray="3 3" stroke="#334155" horizontal={false} />
                       <XAxis type="number" stroke="#94a3b8" fontSize={12} tickLine={false} axisLine={false} />
-                      <YAxis dataKey="name" type="category" stroke="#94a3b8" fontSize={10} tickLine={false} axisLine={false} width={150} />
+                      <YAxis 
+                        dataKey="name" 
+                        type="category" 
+                        stroke="#94a3b8" 
+                        fontSize={10} 
+                        tickLine={false} 
+                        axisLine={false} 
+                        width={150}
+                      />
                       <Tooltip content={<CustomTooltip />} />
-                      <Bar dataKey="value" fill="#3b82f6" radius={[0, 4, 4, 0]} />
+                      <Bar dataKey="value" fill="#3b82f6" radius={[0, 4, 4, 0]}>
+                        <LabelList dataKey="value" position="right" fill="#ffffff" fontSize={11} fontWeight="bold" />
+                      </Bar>
                     </BarChart>
                   </ResponsiveContainer>
                 </div>
@@ -488,30 +506,50 @@ export default function InternoDashboard({ onBack }: Props) {
         {activeTab === 'corretores' && (
           <div className="space-y-6 max-w-7xl mx-auto">
             <div className="bg-[#242731] p-6 rounded-xl border border-slate-800">
-              <h3 className="text-sm font-medium text-slate-400 mb-4">Tempo Médio de Recepção do Lead (Horas)</h3>
+              <h3 className="text-sm font-medium text-white mb-4">Tempo Médio de Recepção do Lead (Horas)</h3>
               <div className="h-96">
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={displayBrokerTime} layout="vertical">
+                  <BarChart data={displayBrokerTime} layout="horizontal" margin={{ top: 20, right: 120, left: 120, bottom: 20 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#334155" horizontal={false} />
                     <XAxis type="number" stroke="#94a3b8" fontSize={12} tickLine={false} axisLine={false} />
-                    <YAxis dataKey="name" type="category" stroke="#94a3b8" fontSize={10} tickLine={false} axisLine={false} width={120} />
+                    <YAxis 
+                      dataKey="name" 
+                      type="category" 
+                      stroke="#94a3b8" 
+                      fontSize={10} 
+                      tickLine={false} 
+                      axisLine={false} 
+                      width={120}
+                    />
                     <Tooltip content={<CustomTooltip />} />
-                    <Bar dataKey="time" fill="#3b82f6" radius={[0, 4, 4, 0]} />
+                    <Bar dataKey="time" fill="#3b82f6" radius={[0, 4, 4, 0]}>
+                      <LabelList dataKey="time" position="right" fill="#ffffff" fontSize={11} fontWeight="bold" />
+                    </Bar>
                   </BarChart>
                 </ResponsiveContainer>
               </div>
             </div>
 
             <div className="bg-[#242731] p-6 rounded-xl border border-slate-800">
-              <h3 className="text-sm font-medium text-slate-400 mb-4">Ações no CV</h3>
+              <h3 className="text-sm font-medium text-white mb-4">Ações no CV</h3>
               <div className="h-96">
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={displayBrokerActions} layout="vertical">
+                  <BarChart data={displayBrokerActions} layout="horizontal" margin={{ top: 20, right: 120, left: 120, bottom: 20 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#334155" horizontal={false} />
                     <XAxis type="number" stroke="#94a3b8" fontSize={12} tickLine={false} axisLine={false} />
-                    <YAxis dataKey="name" type="category" stroke="#94a3b8" fontSize={10} tickLine={false} axisLine={false} width={120} />
+                    <YAxis 
+                      dataKey="name" 
+                      type="category" 
+                      stroke="#94a3b8" 
+                      fontSize={10} 
+                      tickLine={false} 
+                      axisLine={false} 
+                      width={120}
+                    />
                     <Tooltip content={<CustomTooltip />} />
-                    <Bar dataKey="actions" fill="#3b82f6" radius={[0, 4, 4, 0]} />
+                    <Bar dataKey="actions" fill="#3b82f6" radius={[0, 4, 4, 0]}>
+                      <LabelList dataKey="actions" position="right" fill="#ffffff" fontSize={11} fontWeight="bold" />
+                    </Bar>
                   </BarChart>
                 </ResponsiveContainer>
               </div>
