@@ -96,7 +96,14 @@ export function useInternoDashboard(filters: DashboardFilters) {
           const y = date.getFullYear();
           const m = String(date.getMonth() + 1).padStart(2, '0');
           const d = String(date.getDate()).padStart(2, '0');
-          return `${y}-${m}-${d}`;
+          return `${y}/${m}/${d}`;  // Changed to YYYY/MM/DD format
+        };
+
+        const formatDateForQuery = (date: Date) => {
+          const y = date.getFullYear();
+          const m = String(date.getMonth() + 1).padStart(2, '0');
+          const d = String(date.getDate()).padStart(2, '0');
+          return `${y}/${m}/${d}`;  // YYYY/MM/DD format for Supabase queries
         };
 
         const startDateStr = formatYYYYMMDD(startDate);
@@ -157,8 +164,8 @@ export function useInternoDashboard(filters: DashboardFilters) {
             const fallbackQuery = supabase
               .from('leads')
               .select('*')  // Get all columns to see structure
-              .gte('created_at', startDateStr)  // Try common date column
-              .lte('created_at', endDateStr)
+              .gte('created_at', formatDateForQuery(startDate))  // YYYY/MM/DD format
+              .lte('created_at', formatDateForQuery(endDate))  // YYYY/MM/DD format
               .limit(1);
             
             const { data: fallbackData, error: fallbackError } = await fallbackQuery;
@@ -176,8 +183,8 @@ export function useInternoDashboard(filters: DashboardFilters) {
               let correctedQuery = supabase
                 .from('leads')
                 .select(`${statusCol}, ${idCol}, ${dateCol}, origem, motivo_cancelamento, corretor, empreendimento`)
-                .gte(dateCol, startDateStr)
-                .lte(dateCol, endDateStr);
+                .gte(dateCol, formatDateForQuery(startDate))
+                .lte(dateCol, formatDateForQuery(endDate));
                 
               if (filters.project !== 'Todos') {
                 correctedQuery = correctedQuery.eq('empreendimento', filters.project);
@@ -304,8 +311,8 @@ export function useInternoDashboard(filters: DashboardFilters) {
             let funnelQuery = supabase
               .from('view_funil_maximo_com_total')
               .select('*')
-              .gte('safra_data', startDateStr)  // Use correct date column
-              .lte('safra_data', endDateStr);
+              .gte('safra_data', formatDateForQuery(startDate))  // Use YYYY/MM/DD format
+              .lte('safra_data', formatDateForQuery(endDate));
 
             if (filters.project !== 'Todos') {
               funnelQuery = funnelQuery.eq('empreendimento', filters.project);
