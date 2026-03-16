@@ -135,11 +135,12 @@ export function useInternoDashboard(filters: DashboardFilters) {
             empreendimento: item.empreendimento
           })) || [];
         } else {
+          // Try different column names for leads table
           let leadsQuery = supabase
             .from('leads')
-            .select('status_atual, lead_id, safra_data, origem, motivo_cancelamento, corretor, empreendimento')
-            .gte('safra_data', startDateStr)
-            .lte('safra_data', endDateStr);
+            .select('status_atual, id_cv, data_criacao_cv, origem, motivo_cancelamento, corretor, empreendimento')
+            .gte('data_criacao_cv', startDateStr)
+            .lte('data_criacao_cv', endDateStr);
 
           if (filters.project !== 'Todos') {
             leadsQuery = leadsQuery.eq('empreendimento', filters.project);
@@ -149,17 +150,73 @@ export function useInternoDashboard(filters: DashboardFilters) {
           }
 
           const { data, error } = await leadsQuery;
-          if (error) throw error;
           
-          leadsData = data?.map(item => ({
-            status_atual: item.status_atual,
-            id: item.lead_id,
-            lead_data_cad: item.safra_data,
-            origem: item.origem,
-            motivo_cancelamento: item.motivo_cancelamento,
-            corretor: item.corretor,
-            empreendimento: item.empreendimento
-          })) || [];
+          // If error with column names, try fallback with different names
+          if (error && error.code === '42703') {
+            console.log('Trying fallback column names for leads table...');
+            const fallbackQuery = supabase
+              .from('leads')
+              .select('*')  // Get all columns to see structure
+              .gte('created_at', startDateStr)  // Try common date column
+              .lte('created_at', endDateStr)
+              .limit(1);
+            
+            const { data: fallbackData, error: fallbackError } = await fallbackQuery;
+            
+            if (!fallbackError && fallbackData && fallbackData.length > 0) {
+              console.log('Leads table columns:', Object.keys(fallbackData[0]));
+              console.log('Sample row:', fallbackData[0]);
+              
+              // Now try to get data with correct column names
+              const columns = Object.keys(fallbackData[0]);
+              const idCol = columns.find(c => c.includes('id')) || 'id';
+              const dateCol = columns.find(c => c.includes('data') || c.includes('created')) || 'created_at';
+              const statusCol = columns.find(c => c.includes('status')) || 'status';
+              
+              let correctedQuery = supabase
+                .from('leads')
+                .select(`${statusCol}, ${idCol}, ${dateCol}, origem, motivo_cancelamento, corretor, empreendimento`)
+                .gte(dateCol, startDateStr)
+                .lte(dateCol, endDateStr);
+                
+              if (filters.project !== 'Todos') {
+                correctedQuery = correctedQuery.eq('empreendimento', filters.project);
+              }
+              if (filters.broker !== 'Todos') {
+                correctedQuery = correctedQuery.eq('corretor', filters.broker);
+              }
+              
+              const { data: correctedData, error: correctedError } = await correctedQuery;
+              
+              if (!correctedError && correctedData) {
+                leadsData = correctedData.map(item => ({
+                  status_atual: item[statusCol],
+                  id: item[idCol],
+                  lead_data_cad: item[dateCol],
+                  origem: item.origem,
+                  motivo_cancelamento: item.motivo_cancelamento,
+                  corretor: item.corretor,
+                  empreendimento: item.empreendimento
+                }));
+              } else {
+                throw correctedError || new Error('Failed to fetch leads with corrected columns');
+              }
+            } else {
+              throw error || new Error('Failed to get leads table structure');
+            }
+          } else if (error) {
+            throw error;
+          } else {
+            leadsData = data?.map(item => ({
+              status_atual: item.status_atual,
+              id: item.lead_id,
+              lead_data_cad: item.safra_data,
+              origem: item.origem,
+              motivo_cancelamento: item.motivo_cancelamento,
+              corretor: item.corretor,
+              empreendimento: item.empreendimento
+            })) || [];
+          }
         }
 
         if (leadsData) {
@@ -336,7 +393,7 @@ export function useInternoDashboard(filters: DashboardFilters) {
               console.error('View structure error:', viewError);
               console.error('Available columns might be different than expected');
             } else {
-              console.log('View structure test passed, columns:', Object.keys(testView[0] || {}));
+              console.log('View structure OK');
             }
           } catch (err) {
             console.error('Error testing view structure:', err);
@@ -345,11 +402,24 @@ export function useInternoDashboard(filters: DashboardFilters) {
           for (let i = 0; i < leadIds.length; i += chunkSize) {
             const chunk = leadIds.slice(i, i + chunkSize);
             
-            // Milestones
-            const { data: milestonesData } = await supabase
+            // Milestones - try different column names
+            let milestonesQuery = supabase
               .from('lead_milestones')
               .select('lead_id, para_fase')
               .in('lead_id', chunk);
+              
+            let { data: milestonesData } = await milestonesQuery;
+            
+            // If lead_id doesn't exist, try id_cv
+            if (!milestonesData || milestonesData.length === 0) {
+              milestonesQuery = supabase
+                .from('lead_milestones')
+                .select('id_cv, para_fase')
+                .in('id_cv', chunk);
+                
+              const result = await milestonesQuery;
+              milestonesData = result.data;
+            }
               
             if (milestonesData) {
               milestonesData.forEach(m => {
@@ -358,18 +428,32 @@ export function useInternoDashboard(filters: DashboardFilters) {
                 if (fase.includes('visita')) score = 2;
                 else if (fase.includes('agendamento') || fase.includes('agendado')) score = 1;
                 
-                const currentScore = leadHottestStatus.get(m.lead_id) || 0;
+                const leadId = m.lead_id || m.id_cv;
+                const currentScore = leadHottestStatus.get(leadId) || 0;
                 if (score > currentScore) {
-                  leadHottestStatus.set(m.lead_id, score);
+                  leadHottestStatus.set(leadId, score);
                 }
               });
             }
 
-            // Snapshots
-            const { data: snapshotData } = await supabase
+            // Snapshots - try different column names
+            let snapshotQuery = supabase
               .from('view_lead_snapshot_mensal')
               .select('status_final_mes, competencia_data, lead_id')
               .in('lead_id', chunk);
+              
+            let { data: snapshotData } = await snapshotQuery;
+            
+            // If lead_id doesn't exist, try id_cv
+            if (!snapshotData || snapshotData.length === 0) {
+              snapshotQuery = supabase
+                .from('view_lead_snapshot_mensal')
+                .select('status_final_mes, competencia_data, id_cv')
+                .in('id_cv', chunk);
+                
+              const result = await snapshotQuery;
+              snapshotData = result.data;
+            }
               
             if (snapshotData) {
               snapshotDataAll.push(...snapshotData);
@@ -410,8 +494,9 @@ export function useInternoDashboard(filters: DashboardFilters) {
             if (!statusMonths.has(monthStr)) {
               statusMonths.set(monthStr, new Set());
             }
-            if (row.lead_id) {
-              statusMonths.get(monthStr)!.add(row.lead_id);
+            const leadId = row.lead_id || row.id_cv;
+            if (leadId) {
+              statusMonths.get(monthStr)!.add(leadId);
             }
           });
 
