@@ -62,10 +62,55 @@ const loadCache = (): CacheData['data'] | null => {
       return null;
     }
 
-    console.log('✅ Cache carregado (válido por', Math.floor((CACHE_DURATION - (Date.now() - cacheData.timestamp)) / 1000 / 60), 'minutos)');
-    return cacheData.data;
+    // VALIDAÇÃO E LIMPEZA DOS DADOS
+    const cleanData = {
+      statusData: (cacheData.data.statusData || []).map(item => ({
+        name: String(item.name || ''),
+        value: Number(item.value || 0)
+      })),
+      funnelData: (cacheData.data.funnelData || []).map(item => ({
+        name: String(item.name || ''),
+        value: Number(item.value || 0),
+        fill: String(item.fill || '#3b82f6')
+      })),
+      stackedStatusData: cacheData.data.stackedStatusData || [],
+      availableMonths: cacheData.data.availableMonths || [],
+      brokerTimeData: (cacheData.data.brokerTimeData || []).map(item => ({
+        name: String(item.name || ''),
+        time: Number(item.time || 0)
+      })),
+      brokerActionsData: (cacheData.data.brokerActionsData || []).map(item => ({
+        name: String(item.name || ''),
+        actions: Number(item.actions || 0)
+      })),
+      originData: (cacheData.data.originData || []).map(item => ({
+        name: String(item.name || ''),
+        value: Number(item.value || 0)
+      })),
+      cancelReasons: (cacheData.data.cancelReasons || []).map(item => ({
+        reason: String(item.reason || ''),
+        count: Number(item.count || 0)
+      })),
+      brokerLeads: (cacheData.data.brokerLeads || []).map(item => ({
+        name: String(item.name || ''),
+        value: Number(item.value || 0)
+      })),
+      lineData: cacheData.data.lineData || [],
+      lineChartKeys: cacheData.data.lineChartKeys || [],
+      totalLeads: Number(cacheData.data.totalLeads || 0),
+      hottestStatusData: {
+        visita: Number(cacheData.data.hottestStatusData?.visita || 0),
+        agendamento: Number(cacheData.data.hottestStatusData?.agendamento || 0)
+      }
+    };
+
+    console.log('✅ Cache carregado e validado (válido por', Math.floor((CACHE_DURATION - (Date.now() - cacheData.timestamp)) / 1000 / 60), 'minutos)');
+    console.log('📊 Status Data do Cache:', cleanData.statusData);
+    
+    return cleanData;
   } catch (error) {
     console.error('❌ Erro ao carregar cache:', error);
+    localStorage.removeItem(CACHE_KEY);
     return null;
   }
 };
@@ -91,6 +136,10 @@ export function useInternoDashboardWithCache(filters: DashboardFilters) {
 
   // Função para carregar dados do cache
   const loadFromCache = () => {
+    // LIMPA CACHE CORROMPIDO
+    console.log('🧹 Limpando cache potencialmente corrompido...');
+    localStorage.removeItem(CACHE_KEY);
+    
     const cachedData = loadCache();
     if (cachedData) {
       console.log('🚀 Carregando dados do cache...');
