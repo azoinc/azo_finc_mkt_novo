@@ -7,6 +7,8 @@ import {
 } from 'recharts';
 import { useInternoDashboard } from '../hooks/useInternoDashboard';
 import { DateRangePicker, DateRange } from '../components/DateRangePicker';
+import { SupabaseDebug } from '../components/SupabaseDebug';
+import { ColumnDebugger } from '../components/ColumnDebugger';
 import { SimpleDataTest } from '../components/SimpleDataTest';
 import { QuickDataCheck } from '../components/QuickDataCheck';
 import { DataPeriodTester } from '../components/DataPeriodTester';
