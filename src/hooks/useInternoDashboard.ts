@@ -25,6 +25,7 @@ export function useInternoDashboard(filters: DashboardFilters) {
   const [cancelReasons, setCancelReasons] = useState<{ reason: string; count: number }[]>([]);
   const [brokerLeads, setBrokerLeads] = useState<{ name: string; value: number }[]>([]);
   const [lineData, setLineData] = useState<any[]>([]);
+  const [lineChartKeys, setLineChartKeys] = useState<string[]>([]);
   
   const [totalLeads, setTotalLeads] = useState(0);
   const [hottestStatusData, setHottestStatusData] = useState({ visita: 0, agendamento: 0 });
@@ -47,7 +48,7 @@ export function useInternoDashboard(filters: DashboardFilters) {
         let endDate = new Date();
 
         if (filters.period === 'Todo o período') {
-          startDate = new Date(2000, 0, 1); // A date far in the past
+          startDate = new Date(2025, 11, 1); // December 1, 2025
         } else if (filters.period === 'Últimos 30 dias') {
           startDate.setDate(now.getDate() - 30);
         } else if (filters.period === 'Este mês') {
@@ -60,11 +61,18 @@ export function useInternoDashboard(filters: DashboardFilters) {
           endDate = new Date(`${filters.endDate}T23:59:59.999`);
         } else {
           // Default fallback
-          startDate = new Date(2000, 0, 1);
+          startDate = new Date(2025, 11, 1);
         }
 
-        const startDateStr = startDate.toISOString();
-        const endDateStr = endDate.toISOString();
+        const formatYYYYMMDD = (date: Date) => {
+          const y = date.getFullYear();
+          const m = String(date.getMonth() + 1).padStart(2, '0');
+          const d = String(date.getDate()).padStart(2, '0');
+          return `${y}-${m}-${d}`;
+        };
+
+        const startDateStr = formatYYYYMMDD(startDate);
+        const endDateStr = formatYYYYMMDD(endDate);
 
         // 1. Fetch current leads status (for the first chart and total leads)
         // Adjust column names based on your actual 'leads' table schema
@@ -92,7 +100,7 @@ export function useInternoDashboard(filters: DashboardFilters) {
           leadsData = data?.map(item => ({
             status_atual: item.status_final_mes,
             id: item.lead_id,
-            data_criacao_cv: item.lead_data_cad,
+            lead_data_cad: item.lead_data_cad,
             origem: item.origem,
             motivo_cancelamento: null, // Not available in snapshot view
             corretor: item.corretor,
@@ -101,9 +109,9 @@ export function useInternoDashboard(filters: DashboardFilters) {
         } else {
           let leadsQuery = supabase
             .from('leads')
-            .select('status_atual, id, data_criacao_cv, origem, motivo_cancelamento, corretor, empreendimento')
-            .gte('data_criacao_cv', startDateStr)
-            .lte('data_criacao_cv', endDateStr);
+            .select('status_atual, id, lead_data_cad, origem, motivo_cancelamento, corretor, empreendimento')
+            .gte('lead_data_cad', startDateStr)
+            .lte('lead_data_cad', endDateStr);
 
           if (filters.project !== 'Todos') {
             leadsQuery = leadsQuery.eq('empreendimento', filters.project);
@@ -131,13 +139,23 @@ export function useInternoDashboard(filters: DashboardFilters) {
             const status = lead.status_atual || 'Sem Status';
             statusCounts[status] = (statusCounts[status] || 0) + 1;
 
-            // Origem
-            const origin = lead.origem || 'Desconhecida';
+            // Origem Tratada
+            let origin = lead.origem || 'Desconhecida';
+            const originLower = origin.toLowerCase();
+            if (originLower.includes('facebook') || originLower.includes('fb') || originLower.includes('instagram') || originLower.includes('ig') || originLower.includes('meta')) {
+              origin = 'Facebook';
+            } else if (originLower.includes('google') || originLower.includes('adwords')) {
+              origin = 'Google';
+            } else if (originLower.includes('site') || originLower.includes('organico') || originLower.includes('orgânico') || originLower.includes('seo')) {
+              origin = 'Site';
+            } else {
+              origin = 'Outros';
+            }
             originCounts[origin] = (originCounts[origin] || 0) + 1;
 
             // Motivo Cancelamento
-            if (status.toLowerCase().includes('descartado') || status.toLowerCase().includes('cancelado')) {
-              const motivo = lead.motivo_cancelamento || 'Não informado';
+            if (lead.motivo_cancelamento && lead.motivo_cancelamento.trim() !== '') {
+              const motivo = lead.motivo_cancelamento.trim();
               cancelCounts[motivo] = (cancelCounts[motivo] || 0) + 1;
             }
 
@@ -146,9 +164,9 @@ export function useInternoDashboard(filters: DashboardFilters) {
             brokerCounts[corretor] = (brokerCounts[corretor] || 0) + 1;
 
             // Evolução (Line Chart)
-            if (lead.data_criacao_cv) {
+            if (lead.lead_data_cad) {
               // Create date object handling timezone issues by appending time if it's just a date string
-              const dateObj = new Date(lead.data_criacao_cv.includes('T') ? lead.data_criacao_cv : `${lead.data_criacao_cv}T12:00:00Z`);
+              const dateObj = new Date(lead.lead_data_cad.includes('T') ? lead.lead_data_cad : `${lead.lead_data_cad}T12:00:00Z`);
               const sortKey = dateObj.toISOString().split('T')[0]; // YYYY-MM-DD
               const displayDate = dateObj.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit' });
               const emp = lead.empreendimento || 'Outros';
@@ -171,12 +189,25 @@ export function useInternoDashboard(filters: DashboardFilters) {
           });
           setLineData(sortedLineData);
 
+          // Extract unique empreendimentos for line chart keys, sorted by total volume
+          const empTotals: Record<string, number> = {};
+          leadsData.forEach(lead => {
+            if (lead.lead_data_cad) {
+              const emp = lead.empreendimento || 'Outros';
+              empTotals[emp] = (empTotals[emp] || 0) + 1;
+            }
+          });
+          const sortedEmpKeys = Object.entries(empTotals)
+            .sort((a, b) => b[1] - a[1])
+            .map(entry => entry[0]);
+          setLineChartKeys(sortedEmpKeys);
+
           // --- Funnel Data from view_funil_maximo_com_total ---
           let funnelQuery = supabase
             .from('view_funil_maximo_com_total')
-            .select('etapa_visual, ordem_visual')
-            .gte('safra_data', startDateStr)
-            .lte('safra_data', endDateStr);
+            .select('etapa_visual, lead_id')
+            .gte('lead_data_cad', startDateStr)
+            .lte('lead_data_cad', endDateStr);
 
           if (filters.project !== 'Todos') {
             funnelQuery = funnelQuery.eq('empreendimento', filters.project);
@@ -188,24 +219,22 @@ export function useInternoDashboard(filters: DashboardFilters) {
           const { data: funnelViewData, error: funnelError } = await funnelQuery;
           
           if (!funnelError && funnelViewData) {
-            if (funnelViewData.length > 0) {
-              console.log('Funnel View Columns:', Object.keys(funnelViewData[0]));
-            }
-            const funnelCounts: Record<string, { count: number, order: number }> = {};
+            const funnelCounts: Record<string, Set<string>> = {};
             
             funnelViewData.forEach(row => {
               const etapa = row.etapa_visual;
-              if (etapa) {
+              const leadId = row.lead_id;
+              if (etapa && leadId) {
                 if (!funnelCounts[etapa]) {
-                  funnelCounts[etapa] = { count: 0, order: row.ordem_visual || 0 };
+                  funnelCounts[etapa] = new Set();
                 }
-                funnelCounts[etapa].count++;
+                funnelCounts[etapa].add(leadId);
               }
             });
 
             const sortedFunnelData = Object.entries(funnelCounts)
-              .sort((a, b) => a[1].order - b[1].order)
-              .map(([name, data]) => ({ name, value: data.count }));
+              .sort((a, b) => a[0].localeCompare(b[0]))
+              .map(([name, dataSet]) => ({ name, value: dataSet.size }));
               
             setFunnelData(sortedFunnelData);
             
@@ -270,38 +299,57 @@ export function useInternoDashboard(filters: DashboardFilters) {
           setHottestStatusData({ visita: vCount, agendamento: aCount });
 
           // Process Stacked Bar Chart
-          const stackedDataMap = new Map<string, any>();
+          const stackedDataMap = new Map<string, Map<string, Set<string>>>();
           const monthsSet = new Set<string>();
+          const monthRawMap = new Map<string, string>();
 
           snapshotDataAll.forEach(row => {
             const status = row.status_final_mes || 'Sem Status';
-            const dateObj = new Date(row.competencia_data + 'T12:00:00Z');
+            const compData = row.competencia_data;
+            if (!compData) return;
+            
+            // Handle YYYY-MM or YYYY-MM-DD
+            const dateStr = compData.length === 7 ? `${compData}-01T12:00:00Z` : `${compData}T12:00:00Z`;
+            const dateObj = new Date(dateStr);
             const monthStr = dateObj.toLocaleDateString('pt-BR', { month: 'short', year: 'numeric' });
+            
             monthsSet.add(monthStr);
+            monthRawMap.set(monthStr, compData);
             
             if (!stackedDataMap.has(status)) {
-              stackedDataMap.set(status, { status });
+              stackedDataMap.set(status, new Map());
             }
-            const statusObj = stackedDataMap.get(status);
-            statusObj[monthStr] = (statusObj[monthStr] || 0) + 1;
+            const statusMonths = stackedDataMap.get(status)!;
+            if (!statusMonths.has(monthStr)) {
+              statusMonths.set(monthStr, new Set());
+            }
+            if (row.lead_id) {
+              statusMonths.get(monthStr)!.add(row.lead_id);
+            }
           });
 
-          // Sort months chronologically
+          // Sort months chronologically (Ascending)
           const sortedMonths = Array.from(monthsSet).sort((a, b) => {
-            const [mA, yA] = a.split(' de ');
-            const [mB, yB] = b.split(' de ');
-            const dateA = new Date(`${mA} 1, ${yA}`);
-            const dateB = new Date(`${mB} 1, ${yB}`);
-            return dateB.getTime() - dateA.getTime(); // Descending (newest first)
+            const rawA = monthRawMap.get(a) || '';
+            const rawB = monthRawMap.get(b) || '';
+            return rawA.localeCompare(rawB);
           });
 
           setAvailableMonths(sortedMonths);
-          setStackedStatusData(Array.from(stackedDataMap.values()).sort((a, b) => {
-            // Sort by total volume
-            const totalA = sortedMonths.reduce((sum, m) => sum + (a[m] || 0), 0);
-            const totalB = sortedMonths.reduce((sum, m) => sum + (b[m] || 0), 0);
-            return totalB - totalA;
-          }));
+          
+          const finalStackedData = Array.from(stackedDataMap.entries()).map(([status, monthsMap]) => {
+            const obj: any = { status };
+            let total = 0;
+            sortedMonths.forEach(month => {
+              const count = monthsMap.get(month)?.size || 0;
+              obj[month] = count;
+              total += count;
+            });
+            obj.total = total;
+            return obj;
+          }).sort((a, b) => b.total - a.total); // Sort by total descending
+
+          setStackedStatusData(finalStackedData);
         }
 
         // 3. Fetch Broker Time (TMA)
@@ -378,6 +426,7 @@ export function useInternoDashboard(filters: DashboardFilters) {
     cancelReasons,
     brokerLeads,
     lineData,
+    lineChartKeys,
     totalLeads,
     hottestStatusData
   };
