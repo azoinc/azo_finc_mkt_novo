@@ -274,8 +274,8 @@ export default function InternoDashboard({ onBack }: Props) {
         </button>
       </header>
 
-      {/* Filters Bar */}
-      <div className="bg-[#242731] border-b border-slate-800 px-6 py-3 flex items-center space-x-4 flex-wrap gap-y-2 relative z-40">
+      {/* Filters Bar - FIXED POSITION */}
+      <div className="bg-[#242731] border-b border-slate-800 px-6 py-3 flex items-center space-x-4 flex-wrap gap-y-2 relative z-40 sticky top-0">
         <DateRangePicker 
           value={{ period: filters.period, startDate: filters.startDate, endDate: filters.endDate }}
           onChange={(range) => setFilters({ 

@@ -173,7 +173,8 @@ export function useInternoDashboard(filters: DashboardFilters) {
         }
 
         if (leadsData) {
-          setTotalLeads(leadsData.length);
+          const totalLeadsCount = leadsData.length;
+          setTotalLeads(totalLeadsCount);
           
           const statusCounts: Record<string, number> = {};
           const originCounts: Record<string, number> = {};
@@ -304,9 +305,9 @@ export function useInternoDashboard(filters: DashboardFilters) {
               
               // Update total leads
               const totalStage = funnelData.find(item => item.name.toLowerCase().includes('total') || item.name.toLowerCase().includes('leads'));
-              if (totalStage) {
-                setTotalLeads(totalStage.value);
-              }
+              // if (totalStage) {
+              //   setTotalLeads(totalStage.value);
+              // }
             } else {
               console.error('Error fetching funnel data:', funnelError);
               console.error('Funnel error details:', JSON.stringify(funnelError, null, 2));
@@ -327,7 +328,7 @@ export function useInternoDashboard(filters: DashboardFilters) {
               { name: '10. Visita Realizada', value: 47, fill: '#eab308' },
               { name: '12. Venda Realizada', value: 28, fill: '#ec4899' },
             ];
-            setTotalLeads(1547);
+            // setTotalLeads(1547);
           }
 
           setFunnelData(funnelData);
