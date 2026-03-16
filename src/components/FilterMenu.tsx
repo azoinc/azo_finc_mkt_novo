@@ -151,7 +151,7 @@ export const FilterMenu: React.FC<FilterMenuProps> = ({ filters, onFiltersChange
         
         {openSection === 'project' && (
           <div className="absolute top-full left-0 mt-1 bg-[#1a1c23] border border-slate-700 rounded-lg shadow-lg z-50 min-w-[180px]">
-            {['Todos', 'Ipanema', 'Casa da Mata', 'Insigna', 'Verter', 'Ares'].map(project => (
+            {['Todos', 'AR Ipanema', 'Insigna Peninsula', 'Casa da Mata', 'Verter Cambuí', 'Edifício A Noite', 'Ares Home', 'Natus Home', 'Ares Home;Casa da Mata', 'Verter Cambuí;Casa da Mata'].map(project => (
               <button
                 key={project}
                 onClick={() => {
@@ -180,7 +180,7 @@ export const FilterMenu: React.FC<FilterMenuProps> = ({ filters, onFiltersChange
         
         {openSection === 'broker' && (
           <div className="absolute top-full left-0 mt-1 bg-[#1a1c23] border border-slate-700 rounded-lg shadow-lg z-50 min-w-[180px]">
-            {['Todos', 'FABIO BINOTTI', 'LEILIANE TAYUMI', 'Antonio Escada'].map(broker => (
+            {['Todos', 'LEILIANE TAYUMI TERUI', 'FABIO BINOTTI BARCELLOS', 'Leticia Daibert', 'Cristiane Varandas', 'Paula Brügg', 'Jose Varandas', 'Alana Mohylak', 'PHELIPE SOUZA', 'Antonio Escada', 'Bell Almeida', 'Marco Almeida'].map(broker => (
               <button
                 key={broker}
                 onClick={() => {
