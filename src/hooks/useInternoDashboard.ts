@@ -81,9 +81,9 @@ export function useInternoDashboard(filters: DashboardFilters) {
         if (filters.competence && filters.competence !== 'Atual') {
           let snapshotQuery = supabase
             .from('view_lead_snapshot_mensal')
-            .select('status_final_mes, lead_id, lead_data_cad, origem, corretor, empreendimento')
-            .gte('lead_data_cad', startDateStr)
-            .lte('lead_data_cad', endDateStr)
+            .select('status_final_mes, id_cv, data_criacao_cv, origem, corretor, empreendimento')
+            .gte('data_criacao_cv', startDateStr)
+            .lte('data_criacao_cv', endDateStr)
             .eq('competencia_data', filters.competence);
 
           if (filters.project !== 'Todos') {
@@ -99,8 +99,8 @@ export function useInternoDashboard(filters: DashboardFilters) {
           // Map snapshot data to match leadsData structure for processing
           leadsData = data?.map(item => ({
             status_atual: item.status_final_mes,
-            id: item.lead_id,
-            lead_data_cad: item.lead_data_cad,
+            id: item.id_cv,
+            lead_data_cad: item.data_criacao_cv,
             origem: item.origem,
             motivo_cancelamento: null, // Not available in snapshot view
             corretor: item.corretor,
@@ -214,9 +214,9 @@ export function useInternoDashboard(filters: DashboardFilters) {
           // --- Funnel Data from view_funil_maximo_com_total ---
           let funnelQuery = supabase
             .from('view_funil_maximo_com_total')
-            .select('etapa_visual, lead_id')
-            .gte('lead_data_cad', startDateStr)
-            .lte('lead_data_cad', endDateStr);
+            .select('etapa_visual, id_cv')
+            .gte('data_criacao_cv', startDateStr)
+            .lte('data_criacao_cv', endDateStr);
 
           if (filters.project !== 'Todos') {
             funnelQuery = funnelQuery.eq('empreendimento', filters.project);
@@ -232,7 +232,7 @@ export function useInternoDashboard(filters: DashboardFilters) {
             
             funnelViewData.forEach(row => {
               const etapa = row.etapa_visual;
-              const leadId = row.lead_id;
+              const leadId = row.id_cv;
               if (etapa && leadId) {
                 if (!funnelCounts[etapa]) {
                   funnelCounts[etapa] = new Set();
@@ -270,8 +270,8 @@ export function useInternoDashboard(filters: DashboardFilters) {
             // Milestones
             const { data: milestonesData } = await supabase
               .from('lead_milestones')
-              .select('lead_id, para_fase')
-              .in('lead_id', chunk);
+              .select('id_cv, para_fase')
+              .in('id_cv', chunk);
               
             if (milestonesData) {
               milestonesData.forEach(m => {
@@ -280,9 +280,9 @@ export function useInternoDashboard(filters: DashboardFilters) {
                 if (fase.includes('visita')) score = 2;
                 else if (fase.includes('agendamento') || fase.includes('agendado')) score = 1;
                 
-                const currentScore = leadHottestStatus.get(m.lead_id) || 0;
+                const currentScore = leadHottestStatus.get(m.id_cv) || 0;
                 if (score > currentScore) {
-                  leadHottestStatus.set(m.lead_id, score);
+                  leadHottestStatus.set(m.id_cv, score);
                 }
               });
             }
@@ -290,8 +290,8 @@ export function useInternoDashboard(filters: DashboardFilters) {
             // Snapshots
             const { data: snapshotData } = await supabase
               .from('view_lead_snapshot_mensal')
-              .select('status_final_mes, competencia_data, lead_id')
-              .in('lead_id', chunk);
+              .select('status_final_mes, competencia_data, id_cv')
+              .in('id_cv', chunk);
               
             if (snapshotData) {
               snapshotDataAll.push(...snapshotData);
@@ -332,8 +332,8 @@ export function useInternoDashboard(filters: DashboardFilters) {
             if (!statusMonths.has(monthStr)) {
               statusMonths.set(monthStr, new Set());
             }
-            if (row.lead_id) {
-              statusMonths.get(monthStr)!.add(row.lead_id);
+            if (row.id_cv) {
+              statusMonths.get(monthStr)!.add(row.id_cv);
             }
           });
 
@@ -384,6 +384,8 @@ export function useInternoDashboard(filters: DashboardFilters) {
             })).sort((a, b) => b.time - a.time);
             setBrokerTimeData(formattedTma);
           }
+        } else if (tmaError) {
+          console.error('Error fetching TMA data:', tmaError);
         }
 
         // 4. Fetch Broker Actions (Esforço)
@@ -409,6 +411,8 @@ export function useInternoDashboard(filters: DashboardFilters) {
             })).sort((a, b) => b.actions - a.actions);
             setBrokerActionsData(formattedActions);
           }
+        } else if (actionsError) {
+          console.error('Error fetching Actions data:', actionsError);
         }
 
       } catch (err: any) {
