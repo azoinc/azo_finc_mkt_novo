@@ -109,9 +109,9 @@ export function useInternoDashboard(filters: DashboardFilters) {
         } else {
           let leadsQuery = supabase
             .from('leads')
-            .select('status_atual, id, lead_data_cad, origem, corretor, empreendimento')
-            .gte('lead_data_cad', startDateStr)
-            .lte('lead_data_cad', endDateStr);
+            .select('status_atual, id_cv, data_criacao_cv, origem, motivo_cancelamento, corretor, empreendimento')
+            .gte('data_criacao_cv', startDateStr)
+            .lte('data_criacao_cv', endDateStr);
 
           if (filters.project !== 'Todos') {
             leadsQuery = leadsQuery.eq('empreendimento', filters.project);
@@ -122,7 +122,16 @@ export function useInternoDashboard(filters: DashboardFilters) {
 
           const { data, error } = await leadsQuery;
           if (error) throw error;
-          leadsData = data;
+          
+          leadsData = data?.map(item => ({
+            status_atual: item.status_atual,
+            id: item.id_cv,
+            lead_data_cad: item.data_criacao_cv,
+            origem: item.origem,
+            motivo_cancelamento: item.motivo_cancelamento,
+            corretor: item.corretor,
+            empreendimento: item.empreendimento
+          })) || [];
         }
 
         if (leadsData) {
