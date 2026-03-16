@@ -148,9 +148,11 @@ export function useInternoDashboard(filters: DashboardFilters) {
             .lte('data_criacao_cv', formatDateForQuery(endDate));
 
           if (filters.project !== 'Todos') {
+            console.log('Filtering by project:', filters.project);
             leadsQuery = leadsQuery.eq('empreendimento', filters.project);
           }
           if (filters.broker !== 'Todos') {
+            console.log('Filtering by broker:', filters.broker);
             leadsQuery = leadsQuery.eq('corretor', filters.broker);
           }
 
@@ -159,6 +161,14 @@ export function useInternoDashboard(filters: DashboardFilters) {
           if (error) {
             console.error('Error fetching leads data:', error);
             throw error;
+          }
+          
+          console.log('Raw leads data:', data);
+          console.log('Leads data length:', data?.length || 0);
+          if (data && data.length > 0) {
+            console.log('Sample lead:', data[0]);
+            console.log('Available empreendimentos:', [...new Set(data.map(item => item.empreendimento))]);
+            console.log('Available corretores:', [...new Set(data.map(item => item.corretor))]);
           }
           
           leadsData = data?.map(item => ({
@@ -260,9 +270,11 @@ export function useInternoDashboard(filters: DashboardFilters) {
               .select('*');  // Remove date filters to see if there's any data
 
             if (filters.project !== 'Todos') {
+              console.log('Filtering funnel by project:', filters.project);
               funnelQuery = funnelQuery.eq('empreendimento', filters.project);
             }
             if (filters.broker !== 'Todos') {
+              console.log('Filtering funnel by broker:', filters.broker);
               funnelQuery = funnelQuery.eq('corretor', filters.broker);
             }
             
@@ -271,6 +283,8 @@ export function useInternoDashboard(filters: DashboardFilters) {
             if (!funnelError && funnelViewData && funnelViewData.length > 0) {
               console.log('Funnel data received:', funnelViewData.length, 'rows');
               console.log('Funnel columns:', Object.keys(funnelViewData[0] || {}));
+              console.log('Available empreendimentos in funnel:', [...new Set(funnelViewData.map(item => item.empreendimento))]);
+              console.log('Available corretores in funnel:', [...new Set(funnelViewData.map(item => item.corretor))]);
               
               // Apply date filter only after getting data
               let filteredData = funnelViewData;
