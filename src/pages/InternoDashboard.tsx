@@ -330,26 +330,30 @@ export default function InternoDashboard({ onBack }: Props) {
                 <div className="mb-2 text-xs text-slate-500">
                   Dados: {displayStatusData.length} itens | Primeiro: {displayStatusData[0]?.name || 'N/A'}
                 </div>
-                <div className="h-[600px]">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={displayStatusData} margin={{ top: 20, right: 150, left: 250, bottom: 20 }}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
-                      <XAxis type="number" stroke="#94a3b8" fontSize={12} tickLine={false} axisLine={false} />
-                      <YAxis 
-                        dataKey="name" 
-                        type="category" 
-                        stroke="#94a3b8" 
-                        fontSize={12} 
-                        tickLine={false} 
-                        axisLine={false} 
-                        width={250}
-                      />
-                      <Tooltip content={<CustomTooltip />} />
-                      <Bar dataKey="value" fill="#3b82f6" radius={[0, 4, 4, 0]}>
-                        <LabelList dataKey="value" position="right" fill="#ffffff" fontSize={12} fontWeight="bold" />
-                      </Bar>
-                    </BarChart>
-                  </ResponsiveContainer>
+                {/* Teste com altura fixa e sem ResponsiveContainer */}
+                <div className="h-[600px] w-full">
+                  <BarChart 
+                    width={800} 
+                    height={600} 
+                    data={displayStatusData} 
+                    margin={{ top: 20, right: 150, left: 250, bottom: 20 }}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
+                    <XAxis type="number" stroke="#94a3b8" fontSize={12} tickLine={false} axisLine={false} />
+                    <YAxis 
+                      dataKey="name" 
+                      type="category" 
+                      stroke="#94a3b8" 
+                      fontSize={12} 
+                      tickLine={false} 
+                      axisLine={false} 
+                      width={250}
+                    />
+                    <Tooltip content={<CustomTooltip />} />
+                    <Bar dataKey="value" fill="#3b82f6" radius={[0, 4, 4, 0]}>
+                      <LabelList dataKey="value" position="right" fill="#ffffff" fontSize={12} fontWeight="bold" />
+                    </Bar>
+                  </BarChart>
                 </div>
               </div>
             </div>
