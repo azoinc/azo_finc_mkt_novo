@@ -66,35 +66,6 @@ export const FilterMenu: React.FC<FilterMenuProps> = ({ filters, onFiltersChange
 
   return (
     <div className="flex items-center space-x-3">
-      {/* Period Dropdown */}
-      <div className="relative">
-        <button
-          onClick={() => toggleSection('period')}
-          className="flex items-center space-x-2 text-slate-400 bg-[#1a1c23] px-3 py-1.5 rounded-lg border border-slate-700 hover:bg-[#2a2d3a] transition-colors"
-        >
-          <Calendar size={16} />
-          <span className="text-sm">{filters.period === 'Todo o período' ? 'Todo o período' : filters.period}</span>
-          {openSection === 'period' ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-        </button>
-        
-        {openSection === 'period' && (
-          <div className="absolute top-full left-0 mt-1 bg-[#1a1c23] border border-slate-700 rounded-lg shadow-lg z-50 min-w-[200px]">
-            {['Todo o período', 'Últimos 30 dias', 'Este mês', 'Mês passado'].map(period => (
-              <button
-                key={period}
-                onClick={() => {
-                  onFiltersChange({ ...filters, period });
-                  setOpenSection(null);
-                }}
-                className="w-full text-left px-3 py-2 text-sm text-slate-200 hover:bg-[#2a2d3a] transition-colors first:rounded-t-lg last:rounded-b-lg"
-              >
-                {period}
-              </button>
-            ))}
-          </div>
-        )}
-      </div>
-
       {/* Year/Month Competence Selectors */}
       <div className="flex items-center space-x-2 text-slate-400 bg-[#1a1c23] px-3 py-1.5 rounded-lg border border-slate-700">
         <span className="text-sm font-medium">Competência:</span>
