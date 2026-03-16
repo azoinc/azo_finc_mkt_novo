@@ -169,6 +169,11 @@ export function useInternoDashboard(filters: DashboardFilters) {
             console.log('Sample lead:', data[0]);
             console.log('Available empreendimentos:', [...new Set(data.map(item => item.empreendimento))]);
             console.log('Available corretores:', [...new Set(data.map(item => item.corretor))]);
+            console.log('Available origens:', [...new Set(data.map(item => item.origem))]);
+            console.log('Origem counts:', data.reduce((acc, item) => {
+              acc[item.origem] = (acc[item.origem] || 0) + 1;
+              return acc;
+            }, {}));
           }
           
           leadsData = data?.map(item => ({
