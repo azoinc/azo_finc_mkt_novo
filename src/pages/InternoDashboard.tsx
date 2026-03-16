@@ -5,14 +5,13 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
   LineChart, Line, FunnelChart, Funnel, LabelList, Cell
 } from 'recharts';
-import { useInternoDashboard } from '../hooks/useInternoDashboard';
-import { DateRangePicker, DateRange } from '../components/DateRangePicker';
 import { SupabaseDebug } from '../components/SupabaseDebug';
 import { ColumnDebugger } from '../components/ColumnDebugger';
-import { DataPeriodTester } from '../components/DataPeriodTester';
-import { TableStructureChecker } from '../components/TableStructureChecker';
 import { SimpleDataTest } from '../components/SimpleDataTest';
 import { QuickDataCheck } from '../components/QuickDataCheck';
+import { DataPeriodTester } from '../components/DataPeriodTester';
+import { TableStructureChecker } from '../components/TableStructureChecker';
+import { PostgreSQLTest } from '../components/PostgreSQLTest';
 
 interface Props {
   onBack: () => void;
@@ -336,6 +335,7 @@ export default function InternoDashboard({ onBack }: Props) {
       <main className="flex-1 p-6 overflow-y-auto">
         <SupabaseDebug />
         <ColumnDebugger />
+        <PostgreSQLTest />
         <SimpleDataTest />
         <QuickDataCheck />
         <DataPeriodTester />
