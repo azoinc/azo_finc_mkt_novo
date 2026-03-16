@@ -42,6 +42,34 @@ export function useInternoDashboard(filters: DashboardFilters) {
       setError(null);
 
       try {
+        // Debug: Check if supabase is properly initialized
+        if (!supabase) {
+          setError('Supabase client not initialized. Check environment variables.');
+          setLoading(false);
+          return;
+        }
+
+        // Test basic connection
+        console.log('Testing Supabase connection...');
+        console.log('Supabase URL:', import.meta.env.VITE_SUPABASE_URL);
+        console.log('Supabase URL exists:', !!import.meta.env.VITE_SUPABASE_URL);
+        console.log('Supabase Key exists:', !!import.meta.env.VITE_SUPABASE_ANON_KEY);
+        
+        const { data: testData, error: testError } = await supabase
+          .from('leads')
+          .select('count')
+          .limit(1);
+        
+        if (testError) {
+          console.error('Supabase connection test failed:', testError);
+          console.error('Full error details:', JSON.stringify(testError, null, 2));
+          setError(`Supabase connection failed: ${testError.message}`);
+          setLoading(false);
+          return;
+        }
+        
+        console.log('Supabase connection successful');
+
         // 1. Determine Date Range
         const now = new Date();
         let startDate = new Date();
@@ -214,7 +242,7 @@ export function useInternoDashboard(filters: DashboardFilters) {
           // --- Funnel Data from view_funil_maximo_com_total ---
           let funnelQuery = supabase
             .from('view_funil_maximo_com_total')
-            .select('etapa_visual, id_cv')
+            .select('*')  // Changed to select all columns to debug
             .gte('data_criacao_cv', startDateStr)
             .lte('data_criacao_cv', endDateStr);
 
@@ -228,11 +256,16 @@ export function useInternoDashboard(filters: DashboardFilters) {
           const { data: funnelViewData, error: funnelError } = await funnelQuery;
           
           if (!funnelError && funnelViewData) {
+            console.log('Funnel data received:', funnelViewData.length, 'rows');
+            console.log('Funnel columns:', Object.keys(funnelViewData[0] || {}));
+            
             const funnelCounts: Record<string, Set<string>> = {};
             
             funnelViewData.forEach(row => {
-              const etapa = row.etapa_visual;
-              const leadId = row.id_cv;
+              // Try different possible column names
+              const etapa = row.etapa_visual || row.etapa || row.stage || 'Unknown';
+              const leadId = row.id_cv || row.id_lead || row.lead_id || row.id;
+              
               if (etapa && leadId) {
                 if (!funnelCounts[etapa]) {
                   funnelCounts[etapa] = new Set();
@@ -264,6 +297,29 @@ export function useInternoDashboard(filters: DashboardFilters) {
           
           const leadHottestStatus = new Map<string, number>();
           const snapshotDataAll: any[] = [];
+
+          // Debug: Check if views exist before querying
+          if (!supabase) {
+            console.error('Supabase client not initialized');
+            return;
+          }
+
+          // Debug: Test view structure first
+          try {
+            const { data: testView, error: viewError } = await supabase
+              .from('view_funil_maximo_com_total')
+              .select('*')
+              .limit(1);
+            
+            if (viewError) {
+              console.error('View structure error:', viewError);
+              console.error('Available columns might be different than expected');
+            } else {
+              console.log('View structure test passed, columns:', Object.keys(testView[0] || {}));
+            }
+          } catch (err) {
+            console.error('Error testing view structure:', err);
+          }
 
           for (let i = 0; i < leadIds.length; i += chunkSize) {
             const chunk = leadIds.slice(i, i + chunkSize);
