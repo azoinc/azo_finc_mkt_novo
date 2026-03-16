@@ -330,8 +330,12 @@ export default function InternoDashboard({ onBack }: Props) {
                 <div className="mb-2 text-xs text-slate-500">
                   Dados: {displayStatusData.length} itens | Primeiro: {displayStatusData[0]?.name || 'N/A'}
                 </div>
+                {/* Debug completo dos dados */}
+                <div className="mb-2 text-xs text-slate-500">
+                  Debug: {JSON.stringify(displayStatusData.slice(0, 2))}
+                </div>
                 {/* Gráfico Horizontal do ZERO */}
-                <div className="w-full" style={{ height: '500px' }}>
+                <div className="w-full" style={{ height: '500px', border: '1px solid red' }}>
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart 
                       data={displayStatusData}
