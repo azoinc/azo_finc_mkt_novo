@@ -13,20 +13,24 @@ interface FilterMenuProps {
   onFiltersChange: (filters: any) => void;
 }
 
-const competenceOptions = [
-  { value: 'Atual', label: 'Atual (Tempo Real)' },
-  { value: '2025-01', label: 'Janeiro 2025' },
-  { value: '2025-02', label: 'Fevereiro 2025' },
-  { value: '2025-03', label: 'Março 2025' },
-  { value: '2025-04', label: 'Abril 2025' },
-  { value: '2025-05', label: 'Maio 2025' },
-  { value: '2025-06', label: 'Junho 2025' },
-  { value: '2025-07', label: 'Julho 2025' },
-  { value: '2025-08', label: 'Agosto 2025' },
-  { value: '2025-09', label: 'Setembro 2025' },
-  { value: '2025-10', label: 'Outubro 2025' },
-  { value: '2025-11', label: 'Novembro 2025' },
-  { value: '2025-12', label: 'Dezembro 2025' },
+const yearOptions = [
+  { value: '2024', label: '2024' },
+  { value: '2025', label: '2025' },
+];
+
+const monthOptions = [
+  { value: '01', label: 'Janeiro' },
+  { value: '02', label: 'Fevereiro' },
+  { value: '03', label: 'Março' },
+  { value: '04', label: 'Abril' },
+  { value: '05', label: 'Maio' },
+  { value: '06', label: 'Junho' },
+  { value: '07', label: 'Julho' },
+  { value: '08', label: 'Agosto' },
+  { value: '09', label: 'Setembro' },
+  { value: '10', label: 'Outubro' },
+  { value: '11', label: 'Novembro' },
+  { value: '12', label: 'Dezembro' },
 ];
 
 export const FilterMenu: React.FC<FilterMenuProps> = ({ filters, onFiltersChange }) => {
@@ -35,6 +39,19 @@ export const FilterMenu: React.FC<FilterMenuProps> = ({ filters, onFiltersChange
   const toggleSection = (section: string) => {
     setOpenSection(openSection === section ? null : section);
   };
+
+  // Parse competence to get year and month
+  const getCompetenceParts = () => {
+    if (filters.competence === 'Atual') {
+      return { year: '2025', month: '12' };
+    }
+    if (filters.competence && filters.competence.length === 7) {
+      return { year: filters.competence.substring(0, 4), month: filters.competence.substring(5, 7) };
+    }
+    return { year: '', month: '' };
+  };
+
+  const competenceParts = getCompetenceParts();
 
   return (
     <div className="bg-[#242731] border-b border-slate-800 px-6 py-3 flex items-center space-x-4 flex-wrap gap-y-2 relative z-40 sticky top-0">
@@ -67,35 +84,47 @@ export const FilterMenu: React.FC<FilterMenuProps> = ({ filters, onFiltersChange
         )}
       </div>
 
-      {/* Competence Dropdown */}
-      <div className="relative">
-        <button
-          onClick={() => toggleSection('competence')}
-          className="flex items-center space-x-2 text-slate-400 bg-[#1a1c23] px-3 py-1.5 rounded-lg border border-slate-700 hover:bg-[#2a2d3a] transition-colors"
-        >
-          <span className="text-sm font-medium">Competência:</span>
-          <span className="text-white text-xs px-2 py-1 rounded bg-[#4a0523]">
-            {filters.competence === 'Atual' ? 'Atual' : filters.competence}
-          </span>
-          {openSection === 'competence' ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-        </button>
+      {/* Year/Month Competence Selectors */}
+      <div className="flex items-center space-x-2 text-slate-400 bg-[#1a1c23] px-3 py-1.5 rounded-lg border border-slate-700">
+        <span className="text-sm font-medium">Competência:</span>
         
-        {openSection === 'competence' && (
-          <div className="absolute top-full left-0 mt-1 bg-[#1a1c23] border border-slate-700 rounded-lg shadow-lg z-50 min-w-[180px] max-h-[300px] overflow-y-auto">
-            {competenceOptions.map(opt => (
-              <button
-                key={opt.value}
-                onClick={() => {
-                  onFiltersChange({ ...filters, competence: opt.value });
-                  setOpenSection(null);
-                }}
-                className="w-full text-left px-3 py-2 text-sm text-slate-200 hover:bg-[#2a2d3a] transition-colors first:rounded-t-lg last:rounded-b-lg"
-              >
-                {opt.label}
-              </button>
-            ))}
-          </div>
-        )}
+        {/* Year Selector */}
+        <select
+          value={competenceParts.year}
+          onChange={(e) => {
+            const year = e.target.value;
+            const month = competenceParts.month;
+            onFiltersChange({ ...filters, competence: month ? `${year}-${month}` : 'Atual' });
+          }}
+          className="bg-transparent border-none outline-none text-sm text-slate-200 mr-2"
+        >
+          <option value="">Ano</option>
+          {yearOptions.map(opt => (
+            <option key={opt.value} value={opt.value}>{opt.label}</option>
+          ))}
+        </select>
+
+        {/* Month Selector */}
+        <select
+          value={competenceParts.month}
+          onChange={(e) => {
+            const month = e.target.value;
+            const year = competenceParts.year;
+            onFiltersChange({ ...filters, competence: month ? `${year}-${month}` : 'Atual' });
+          }}
+          className="bg-transparent border-none outline-none text-sm text-slate-200"
+          disabled={!competenceParts.year}
+        >
+          <option value="">Mês</option>
+          {monthOptions.map(opt => (
+            <option key={opt.value} value={opt.value}>{opt.label}</option>
+          ))}
+        </select>
+
+        {/* Display Current Competence */}
+        <span className="text-white text-xs px-2 py-1 rounded bg-[#4a0523]">
+          {filters.competence === 'Atual' ? 'Atual' : filters.competence}
+        </span>
       </div>
 
       {/* Project Dropdown */}

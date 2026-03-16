@@ -242,7 +242,7 @@ export default function InternoDashboard({ onBack }: Props) {
           <h1 className="text-xl font-bold text-white">Dashboard Interno Mkt</h1>
         </div>
         
-        <div className="flex bg-[#1a1c23] p-1 rounded-xl">
+        <div className="flex bg-[#1a1c23] p-1 rounded-xl print:always-visible">
           <button
             onClick={() => setActiveTab('gerais')}
             className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center space-x-2 ${activeTab === 'gerais' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-white'}`}
@@ -268,7 +268,7 @@ export default function InternoDashboard({ onBack }: Props) {
 
         <button
           onClick={signOut}
-          className="flex items-center space-x-2 text-slate-400 hover:text-rose-500 transition-colors px-3 py-2 rounded-xl hover:bg-rose-500/10"
+          className="flex items-center space-x-2 text-slate-400 hover:text-rose-500 transition-colors px-3 py-2 rounded-xl hover:bg-rose-500/10 print:always-visible"
         >
           <LogOut size={18} />
           <span className="font-medium text-sm">Sair</span>
