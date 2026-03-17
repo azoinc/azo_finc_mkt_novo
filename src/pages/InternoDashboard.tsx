@@ -326,14 +326,6 @@ export default function InternoDashboard({ onBack }: Props) {
               
               <div className="lg:col-span-3 bg-[#242731] p-6 rounded-xl border border-slate-800">
                 <h3 className="text-sm font-medium text-white mb-4">Status</h3>
-                {/* Debug visual */}
-                <div className="mb-2 text-xs text-slate-500">
-                  Dados: {displayStatusData.length} itens | Primeiro: {displayStatusData[0]?.name || 'N/A'}
-                </div>
-                {/* Debug completo dos dados */}
-                <div className="mb-2 text-xs text-slate-500">
-                  Debug: {JSON.stringify(displayStatusData.slice(0, 2))}
-                </div>
                 {/* Gráfico Horizontal - FÓRMULA ORIGEM */}
                 <div className="w-full h-96">
                   <ResponsiveContainer width="100%" height="100%">
@@ -379,6 +371,13 @@ export default function InternoDashboard({ onBack }: Props) {
             {/* Line Chart Row */}
             <div className="bg-[#242731] p-6 rounded-xl border border-slate-800">
               <h3 className="text-sm font-medium text-white mb-4">Evolução de Leads por Empreendimento</h3>
+              {/* Debug temporário */}
+              <div className="mb-2 text-xs text-slate-500">
+                LineData: {displayLineData.length} itens | LineKeys: {displayLineChartKeys.length} chaves
+              </div>
+              <div className="mb-2 text-xs text-slate-500">
+                First LineData: {displayLineData[0] ? JSON.stringify(displayLineData[0]) : 'N/A'}
+              </div>
               <div className="h-80">
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={displayLineData}>
