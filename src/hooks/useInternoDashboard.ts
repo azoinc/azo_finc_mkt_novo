@@ -74,68 +74,35 @@ export function useInternoDashboard(filters: DashboardFilters) {
         const startDateStr = formatYYYYMMDD(startDate);
         const endDateStr = formatYYYYMMDD(endDate);
 
-        // 1. Fetch current leads status (for the first chart and total leads)
-        // Adjust column names based on your actual 'leads' table schema
-        let leadsData: any[] | null = [];
-        
-        if (filters.competence && filters.competence !== 'Atual') {
-          let snapshotQuery = supabase
-            .from('view_lead_snapshot_mensal')
-            .select('status_final_mes, id_cv, data_criacao_cv, origem, corretor, empreendimento')
-            .gte('data_criacao_cv', startDateStr)
-            .lte('data_criacao_cv', endDateStr)
-            .eq('competencia_data', filters.competence);
+        // 1. Fetch leads data from the main leads table
+        let leadsQuery = supabase
+          .from('leads')
+          .select('status_atual, id_cv, data_criacao_cv, origem, motivo_cancelamento, corretor, empreendimento')
+          .gte('data_criacao_cv', startDateStr)
+          .lte('data_criacao_cv', endDateStr);
 
-          if (filters.project !== 'Todos') {
-            snapshotQuery = snapshotQuery.eq('empreendimento', filters.project);
-          }
-          if (filters.broker !== 'Todos') {
-            snapshotQuery = snapshotQuery.eq('corretor', filters.broker);
-          }
-
-          const { data, error } = await snapshotQuery;
-          if (error) throw error;
-          
-          // Map snapshot data to match leadsData structure for processing
-          leadsData = data?.map(item => ({
-            status_atual: item.status_final_mes,
-            id: item.id_cv,
-            lead_data_cad: item.data_criacao_cv,
-            origem: item.origem,
-            motivo_cancelamento: null, // Not available in snapshot view
-            corretor: item.corretor,
-            empreendimento: item.empreendimento
-          })) || [];
-        } else {
-          let leadsQuery = supabase
-            .from('leads')
-            .select('status_atual, id_cv, data_criacao_cv, origem, motivo_cancelamento, corretor, empreendimento')
-            .gte('data_criacao_cv', startDateStr)
-            .lte('data_criacao_cv', endDateStr);
-
-          if (filters.project !== 'Todos') {
-            leadsQuery = leadsQuery.eq('empreendimento', filters.project);
-          }
-          if (filters.broker !== 'Todos') {
-            leadsQuery = leadsQuery.eq('corretor', filters.broker);
-          }
-
-          const { data, error } = await leadsQuery;
-          if (error) throw error;
-          
-          leadsData = data?.map(item => ({
-            status_atual: item.status_atual,
-            id: item.id_cv,
-            lead_data_cad: item.data_criacao_cv,
-            origem: item.origem,
-            motivo_cancelamento: item.motivo_cancelamento,
-            corretor: item.corretor,
-            empreendimento: item.empreendimento
-          })) || [];
+        if (filters.project !== 'Todos') {
+          leadsQuery = leadsQuery.eq('empreendimento', filters.project);
+        }
+        if (filters.broker !== 'Todos') {
+          leadsQuery = leadsQuery.eq('corretor', filters.broker);
         }
 
-        if (leadsData) {
-          setTotalLeads(leadsData.length);
+        const { data: leadsData, error: leadsError } = await leadsQuery;
+        if (leadsError) throw leadsError;
+        
+        const processedLeadsData = leadsData?.map(item => ({
+          status_atual: item.status_atual,
+          id: item.id_cv,
+          lead_data_cad: item.data_criacao_cv,
+          origem: item.origem,
+          motivo_cancelamento: item.motivo_cancelamento,
+          corretor: item.corretor,
+          empreendimento: item.empreendimento
+        })) || [];
+
+        if (processedLeadsData) {
+          setTotalLeads(processedLeadsData.length);
           
           const statusCounts: Record<string, number> = {};
           const originCounts: Record<string, number> = {};
@@ -143,7 +110,7 @@ export function useInternoDashboard(filters: DashboardFilters) {
           const brokerCounts: Record<string, number> = {};
           const lineDataMap: Record<string, any> = {};
 
-          leadsData.forEach(lead => {
+          processedLeadsData.forEach(lead => {
             // Status
             const status = lead.status_atual || 'Sem Status';
             statusCounts[status] = (statusCounts[status] || 0) + 1;
@@ -174,16 +141,20 @@ export function useInternoDashboard(filters: DashboardFilters) {
 
             // Evolução (Line Chart)
             if (lead.lead_data_cad) {
-              // Create date object handling timezone issues by appending time if it's just a date string
-              const dateObj = new Date(lead.lead_data_cad.includes('T') ? lead.lead_data_cad : `${lead.lead_data_cad}T12:00:00Z`);
-              const sortKey = dateObj.toISOString().split('T')[0]; // YYYY-MM-DD
-              const displayDate = dateObj.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit' });
-              const emp = lead.empreendimento || 'Outros';
-              
-              if (!lineDataMap[sortKey]) {
-                lineDataMap[sortKey] = { date: displayDate, sortKey };
+              try {
+                // Create date object handling timezone issues
+                const dateObj = new Date(lead.lead_data_cad.includes('T') ? lead.lead_data_cad : `${lead.lead_data_cad}T12:00:00Z`);
+                const sortKey = dateObj.toISOString().split('T')[0]; // YYYY-MM-DD
+                const displayDate = dateObj.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit' });
+                const emp = lead.empreendimento || 'Outros';
+                
+                if (!lineDataMap[sortKey]) {
+                  lineDataMap[sortKey] = { date: displayDate, sortKey };
+                }
+                lineDataMap[sortKey][emp] = (lineDataMap[sortKey][emp] || 0) + 1;
+              } catch (error) {
+                console.warn('Error processing date:', lead.lead_data_cad, error);
               }
-              lineDataMap[sortKey][emp] = (lineDataMap[sortKey][emp] || 0) + 1;
             }
           });
 
@@ -194,13 +165,13 @@ export function useInternoDashboard(filters: DashboardFilters) {
           
           // Sort line data by date
           const sortedLineData = Object.values(lineDataMap).sort((a, b) => {
-            return a.sortKey.localeCompare(b.sortKey);
+            return (a as any).sortKey.localeCompare((b as any).sortKey);
           });
           setLineData(sortedLineData);
 
           // Extract unique empreendimentos for line chart keys, sorted by total volume
           const empTotals: Record<string, number> = {};
-          leadsData.forEach(lead => {
+          processedLeadsData.forEach(lead => {
             if (lead.lead_data_cad) {
               const emp = lead.empreendimento || 'Outros';
               empTotals[emp] = (empTotals[emp] || 0) + 1;
@@ -209,211 +180,29 @@ export function useInternoDashboard(filters: DashboardFilters) {
           const sortedEmpKeys = Object.entries(empTotals)
             .sort((a, b) => b[1] - a[1])
             .map(entry => entry[0]);
-          setLineChartKeys(sortedEmpKeys);
+          setLineChartKeys(sortedEmpKeys.slice(0, 8)); // Limit to top 8
 
-          // --- Funnel Data from view_funil_maximo_com_total ---
-          let funnelQuery = supabase
-            .from('view_funil_maximo_com_total')
-            .select('etapa_visual, lead_id')
-            .gte('data_criacao_cv', startDateStr)
-            .lte('data_criacao_cv', endDateStr);
+          // --- Simple Funnel Data (Mock for now) ---
+          const mockFunnelData = [
+            { name: 'Total de Leads', value: processedLeadsData.length },
+            { name: 'Em Atendimento', value: statusCounts['Em Atendimento'] || 0 },
+            { name: 'Agendamento', value: statusCounts['Agendamento'] || 0 },
+            { name: 'Visita Realizada', value: statusCounts['Visita Realizada'] || 0 },
+            { name: 'Venda Realizada', value: statusCounts['Venda Realizada'] || 0 }
+          ].filter(item => item.value > 0);
+          setFunnelData(mockFunnelData);
 
-          if (filters.project !== 'Todos') {
-            funnelQuery = funnelQuery.eq('empreendimento', filters.project);
-          }
-          if (filters.broker !== 'Todos') {
-            funnelQuery = funnelQuery.eq('corretor', filters.broker);
-          }
-          
-          const { data: funnelViewData, error: funnelError } = await funnelQuery;
-          
-          if (!funnelError && funnelViewData) {
-            const funnelCounts: Record<string, Set<string>> = {};
-            
-            funnelViewData.forEach(row => {
-              const etapa = row.etapa_visual;
-              const leadId = row.lead_id;
-              if (etapa && leadId) {
-                if (!funnelCounts[etapa]) {
-                  funnelCounts[etapa] = new Set();
-                }
-                funnelCounts[etapa].add(leadId);
-              }
-            });
-
-            const sortedFunnelData = Object.entries(funnelCounts)
-              .sort((a, b) => a[0].localeCompare(b[0]))
-              .map(([name, dataSet]) => ({ name, value: dataSet.size }));
-              
-            setFunnelData(sortedFunnelData);
-            
-            // Update total leads if the funnel has a total stage
-            const totalStage = sortedFunnelData.find(item => item.name.includes('Total de Leads'));
-            if (totalStage) {
-              setTotalLeads(totalStage.value);
-            }
-          } else {
-            console.error('Error fetching funnel data:', funnelError);
-            console.error('Funnel error details:', JSON.stringify(funnelError, null, 2));
-            setFunnelData([]);
-          }
-
-          // --- Fetch Milestones & Snapshots in chunks ---
-          const leadIds = leadsData.map(l => l.id);
-          const chunkSize = 500;
-          
-          const leadHottestStatus = new Map<string, number>();
-          const snapshotDataAll: any[] = [];
-
-          for (let i = 0; i < leadIds.length; i += chunkSize) {
-            const chunk = leadIds.slice(i, i + chunkSize);
-            
-            // Milestones
-            const { data: milestonesData } = await supabase
-              .from('lead_milestones')
-              .select('lead_id, para_fase')
-              .in('lead_id', chunk);
-              
-            if (milestonesData) {
-              milestonesData.forEach(m => {
-                const fase = m.para_fase?.toLowerCase() || '';
-                let score = 0;
-                if (fase.includes('visita')) score = 2;
-                else if (fase.includes('agendamento') || fase.includes('agendado')) score = 1;
-                
-                const currentScore = leadHottestStatus.get(m.lead_id) || 0;
-                if (score > currentScore) {
-                  leadHottestStatus.set(m.lead_id, score);
-                }
-              });
-            }
-
-            // Snapshots
-            const { data: snapshotData } = await supabase
-              .from('view_lead_snapshot_mensal')
-              .select('status_final_mes, competencia_data, lead_id')
-              .in('lead_id', chunk);
-              
-            if (snapshotData) {
-              snapshotDataAll.push(...snapshotData);
-            }
-          }
-
-          // Process Hottest Status
-          let vCount = 0;
-          let aCount = 0;
-          leadHottestStatus.forEach(score => {
-            if (score === 2) vCount++;
-            if (score === 1) aCount++;
-          });
-          setHottestStatusData({ visita: vCount, agendamento: aCount });
-
-          // Process Stacked Bar Chart
-          const stackedDataMap = new Map<string, Map<string, Set<string>>>();
-          const monthsSet = new Set<string>();
-          const monthRawMap = new Map<string, string>();
-
-          snapshotDataAll.forEach(row => {
-            const status = row.status_final_mes || 'Sem Status';
-            const compData = row.competencia_data;
-            if (!compData) return;
-            
-            // Handle YYYY-MM or YYYY-MM-DD
-            const dateStr = compData.length === 7 ? `${compData}-01T12:00:00Z` : `${compData}T12:00:00Z`;
-            const dateObj = new Date(dateStr);
-            const monthStr = dateObj.toLocaleDateString('pt-BR', { month: 'short', year: 'numeric' });
-            
-            monthsSet.add(monthStr);
-            monthRawMap.set(monthStr, compData);
-            
-            if (!stackedDataMap.has(status)) {
-              stackedDataMap.set(status, new Map());
-            }
-            const statusMonths = stackedDataMap.get(status)!;
-            if (!statusMonths.has(monthStr)) {
-              statusMonths.set(monthStr, new Set());
-            }
-            if (row.lead_id) {
-              statusMonths.get(monthStr)!.add(row.lead_id);
-            }
+          // --- Hottest Status Data ---
+          setHottestStatusData({ 
+            visita: statusCounts['Visita Realizada'] || 0, 
+            agendamento: statusCounts['Agendamento'] || 0 
           });
 
-          // Sort months chronologically (Ascending)
-          const sortedMonths = Array.from(monthsSet).sort((a, b) => {
-            const rawA = monthRawMap.get(a) || '';
-            const rawB = monthRawMap.get(b) || '';
-            return rawA.localeCompare(rawB);
-          });
-
-          setAvailableMonths(sortedMonths);
-          
-          const finalStackedData = Array.from(stackedDataMap.entries()).map(([status, monthsMap]) => {
-            const obj: any = { status };
-            let total = 0;
-            sortedMonths.forEach(month => {
-              const count = monthsMap.get(month)?.size || 0;
-              obj[month] = count;
-              total += count;
-            });
-            obj.total = total;
-            return obj;
-          }).sort((a, b) => b.total - a.total); // Sort by total descending
-
-          setStackedStatusData(finalStackedData);
-        }
-
-        // 3. Fetch Broker Time (TMA)
-        let tmaQuery = supabase
-          .from('view_tma_fila_atendimento')
-          .select('*');
-          
-        if (filters.project !== 'Todos') {
-          tmaQuery = tmaQuery.eq('empreendimento', filters.project);
-        }
-        if (filters.broker !== 'Todos') {
-          tmaQuery = tmaQuery.eq('corretor', filters.broker);
-        }
-
-        const { data: tmaData, error: tmaError } = await tmaQuery;
-
-        if (!tmaError && tmaData) {
-          // Assuming columns like 'corretor' and 'tma_horas'
-          if (tmaData.length > 0 && 'corretor' in tmaData[0]) {
-            const formattedTma = tmaData.map((item: any) => ({
-              name: item.corretor || 'Desconhecido',
-              time: Number(item.tma_horas || item.tempo_medio || 0)
-            })).sort((a, b) => b.time - a.time);
-            setBrokerTimeData(formattedTma);
-          }
-        } else if (tmaError) {
-          console.error('Error fetching TMA data:', tmaError);
-        }
-
-        // 4. Fetch Broker Actions (Esforço)
-        let actionsQuery = supabase
-          .from('view_esforco_corretor')
-          .select('*');
-          
-        if (filters.project !== 'Todos') {
-          actionsQuery = actionsQuery.eq('empreendimento', filters.project);
-        }
-        if (filters.broker !== 'Todos') {
-          actionsQuery = actionsQuery.eq('corretor', filters.broker);
-        }
-
-        const { data: actionsData, error: actionsError } = await actionsQuery;
-
-        if (!actionsError && actionsData) {
-          // Assuming columns like 'corretor' and 'total_acoes'
-          if (actionsData.length > 0 && 'corretor' in actionsData[0]) {
-            const formattedActions = actionsData.map((item: any) => ({
-              name: item.corretor || 'Desconhecido',
-              actions: Number(item.total_acoes || item.acoes || 0)
-            })).sort((a, b) => b.actions - a.actions);
-            setBrokerActionsData(formattedActions);
-          }
-        } else if (actionsError) {
-          console.error('Error fetching Actions data:', actionsError);
+          // --- Empty data for charts not yet implemented ---
+          setStackedStatusData([]);
+          setAvailableMonths([]);
+          setBrokerTimeData([]);
+          setBrokerActionsData([]);
         }
 
       } catch (err: any) {
