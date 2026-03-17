@@ -5,7 +5,7 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
   LineChart, Line, FunnelChart, Funnel, LabelList, Cell
 } from 'recharts';
-import { useInternoDashboard } from '../hooks/useInternoDashboard';
+import { useInternoDashboardCache } from '../hooks/useInternoDashboardCache';
 import { DateRangePicker, DateRange } from '../components/DateRangePicker';
 import { FilterMenu } from '../components/FilterMenu';
 
@@ -209,8 +209,9 @@ export default function InternoDashboard({ onBack }: Props) {
 
   const { 
     loading, error, statusData, funnelData, stackedStatusData, availableMonths, brokerTimeData, brokerActionsData, 
-    originData, cancelReasons, brokerLeads, lineData, lineChartKeys, totalLeads, hottestStatusData 
-  } = useInternoDashboard(filters);
+    originData, cancelReasons, brokerLeads, lineData, lineChartKeys, totalLeads, hottestStatusData,
+    isUpdating, showUpdatingIndicator, forceRefresh, clearCache, cacheTimestamp, cacheAge, hasCachedData, fromCache
+  } = useInternoDashboardCache(filters);
 
   const displayStatusData = statusData;
   const displayFunnelData = funnelData;
@@ -241,7 +242,31 @@ export default function InternoDashboard({ onBack }: Props) {
           >
             <ArrowLeft size={20} />
           </button>
-          <h1 className="text-xl font-bold text-white">Dashboard Interno Mkt</h1>
+          <div className="flex items-center space-x-2">
+            <h1 className="text-xl font-bold text-white">Dashboard Interno Mkt</h1>
+            {/* Cache Status Indicator */}
+            {hasCachedData && (
+              <div className="flex items-center space-x-2 text-xs">
+                {fromCache ? (
+                  <span className="flex items-center space-x-1 text-green-400">
+                    <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+                    <span>Cache</span>
+                  </span>
+                ) : (
+                  <span className="flex items-center space-x-1 text-blue-400">
+                    <div className="w-2 h-2 bg-blue-400 rounded-full animate-pulse"></div>
+                    <span>Live</span>
+                  </span>
+                )}
+                {showUpdatingIndicator && (
+                  <span className="flex items-center space-x-1 text-yellow-400">
+                    <div className="w-2 h-2 bg-yellow-400 rounded-full animate-spin"></div>
+                    <span>Atualizando...</span>
+                  </span>
+                )}
+              </div>
+            )}
+          </div>
           
           {/* Filters in same line */}
           <div className="flex items-center space-x-3 border-l border-slate-700 pl-4">
@@ -262,8 +287,35 @@ export default function InternoDashboard({ onBack }: Props) {
           </div>
         </div>
         
-        {/* Right: Tabs + Exit */}
+        {/* Right: Tabs + Exit + Cache Controls */}
         <div className="flex items-center space-x-4">
+          {/* Cache Controls */}
+          <div className="flex items-center space-x-2">
+            <button
+              onClick={forceRefresh}
+              className="p-2 text-slate-400 hover:text-blue-400 hover:bg-blue-400/10 rounded-xl transition-colors"
+              title="Forçar atualização"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+            </button>
+            <button
+              onClick={clearCache}
+              className="p-2 text-slate-400 hover:text-rose-400 hover:bg-rose-400/10 rounded-xl transition-colors"
+              title="Limpar cache"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              </svg>
+            </button>
+            {cacheTimestamp && (
+              <span className="text-xs text-slate-500">
+                {Math.floor(cacheAge / 1000)}s
+              </span>
+            )}
+          </div>
+
           <div className="flex bg-[#1a1c23] p-1 rounded-xl print:always-visible">
             <button
               onClick={() => setActiveTab('gerais')}
