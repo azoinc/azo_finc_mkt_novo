@@ -120,13 +120,12 @@ export function useInternoDashboardCache(filters: DashboardFilters) {
     if (!liveData.loading && !liveData.error && liveData.totalLeads > 0) {
       if (hasDataChanged(liveData)) {
         console.log('🔄 Detectada mudança nos dados live, atualizando cache...');
+        console.log('📊 Live totalLeads:', liveData.totalLeads, 'vs Cache totalLeads:', cacheData?.totalLeads);
         setIsUpdating(true);
         
-        // Simula um pequeno delay para mostrar estado de atualização
-        setTimeout(() => {
-          saveCache(liveData);
-          setIsUpdating(false);
-        }, 500);
+        // Salva cache imediatamente quando detectar mudança
+        saveCache(liveData);
+        setIsUpdating(false);
       }
     }
   }, [
@@ -138,7 +137,7 @@ export function useInternoDashboardCache(filters: DashboardFilters) {
     liveData.lineChartKeys,
     liveData.originData,
     liveData.brokerLeads,
-    liveData.totalLeads,
+    liveData.totalLeads,  // Importante: monitorar totalLeads
     liveData.hottestStatusData
   ]);
 
@@ -159,8 +158,8 @@ export function useInternoDashboardCache(filters: DashboardFilters) {
     };
   }, [liveData]);
 
-  // Dados para o dashboard (prioridade cache > live)
-  const displayData = cacheData && !liveData.loading ? cacheData : liveData;
+  // Dados para o dashboard (prioridade live > cache atualizado)
+  const displayData = !liveData.loading && !liveData.error ? liveData : cacheData;
   const showUpdatingIndicator = isUpdating && !liveData.loading;
 
   // Força atualização manual
@@ -169,6 +168,7 @@ export function useInternoDashboardCache(filters: DashboardFilters) {
     localStorage.removeItem(CACHE_KEY);
     setCacheData(null);
     lastDataHash.current = '';
+    console.log('🗑️ Cache limpo, dados live serão mostrados');
   };
 
   // Limpa cache
@@ -180,11 +180,11 @@ export function useInternoDashboardCache(filters: DashboardFilters) {
   };
 
   return {
-    // Dados (cache com fallback para live)
+    // Dados (prioridade live > cache)
     ...displayData,
     
     // Estados
-    loading: liveData.loading || (!cacheData && liveData.loading),
+    loading: liveData.loading,
     error: liveData.error,
     isUpdating,
     showUpdatingIndicator,
@@ -197,6 +197,8 @@ export function useInternoDashboardCache(filters: DashboardFilters) {
     cacheTimestamp: cacheData?.timestamp,
     cacheAge: cacheData ? Date.now() - cacheData.timestamp : 0,
     hasCachedData: !!cacheData,
-    fromCache: !!cacheData && !liveData.loading
+    fromCache: !!cacheData && liveData.loading,  // Só mostra "fromCache" se estiver carregando
+    liveTotalLeads: liveData.totalLeads,
+    cacheTotalLeads: cacheData?.totalLeads
   };
 }
