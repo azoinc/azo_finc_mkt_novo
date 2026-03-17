@@ -334,44 +334,15 @@ export default function InternoDashboard({ onBack }: Props) {
                 <div className="mb-2 text-xs text-slate-500">
                   Debug: {JSON.stringify(displayStatusData.slice(0, 2))}
                 </div>
-                {/* Gráfico VERTICAL PADRÃO - SEM NADA ESPECIAL */}
+                {/* Gráfico Horizontal - FÓRMULA ORIGEM */}
                 <div className="w-full h-96">
                   <ResponsiveContainer width="100%" height="100%">
-                    <BarChart 
-                      data={displayStatusData}
-                      margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
-                    >
-                      <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
-                      <XAxis 
-                        dataKey="name" 
-                        stroke="#94a3b8" 
-                        fontSize={12} 
-                        tickLine={false} 
-                        axisLine={false} 
-                        angle={-45} 
-                        textAnchor="end" 
-                        height={100}
-                      />
-                      <YAxis 
-                        stroke="#94a3b8" 
-                        fontSize={12} 
-                        tickLine={false} 
-                        axisLine={false} 
-                      />
+                    <BarChart data={displayStatusData} layout="vertical">
+                      <CartesianGrid strokeDasharray="3 3" stroke="#334155" horizontal={false} />
+                      <XAxis type="number" stroke="#94a3b8" fontSize={12} tickLine={false} axisLine={false} />
+                      <YAxis dataKey="name" type="category" stroke="#94a3b8" fontSize={12} tickLine={false} axisLine={false} width={80} />
                       <Tooltip content={<CustomTooltip />} />
-                      <Bar 
-                        dataKey="value" 
-                        fill="#3b82f6" 
-                        radius={[4, 4, 0, 0]}
-                      >
-                        <LabelList 
-                          dataKey="value" 
-                          position="top" 
-                          fill="#ffffff" 
-                          fontSize={12} 
-                          fontWeight="bold" 
-                        />
-                      </Bar>
+                      <Bar dataKey="value" fill="#3b82f6" radius={[0, 4, 4, 0]} />
                     </BarChart>
                   </ResponsiveContainer>
                 </div>
@@ -390,10 +361,10 @@ export default function InternoDashboard({ onBack }: Props) {
                 <h3 className="text-sm font-medium text-white mb-4">Evolução de Status</h3>
                 <div className="h-80">
                   <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={displayStackedStatusData}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#334155" vertical={false} />
-                      <XAxis dataKey="status" stroke="#94a3b8" fontSize={12} tickLine={false} axisLine={false} />
-                      <YAxis stroke="#94a3b8" fontSize={12} tickLine={false} axisLine={false} />
+                    <BarChart data={displayStackedStatusData} layout="vertical">
+                      <CartesianGrid strokeDasharray="3 3" stroke="#334155" horizontal={false} />
+                      <XAxis type="number" stroke="#94a3b8" fontSize={12} tickLine={false} axisLine={false} />
+                      <YAxis dataKey="status" type="category" stroke="#94a3b8" fontSize={12} tickLine={false} axisLine={false} width={80} />
                       <Tooltip content={<CustomTooltip />} />
                       <Legend wrapperStyle={{ fontSize: '12px', color: '#94a3b8' }} verticalAlign="top" height={36} />
                       {displayAvailableMonths.map((month, idx) => (
@@ -475,24 +446,14 @@ export default function InternoDashboard({ onBack }: Props) {
             <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
               <div className="lg:col-span-3 bg-[#242731] p-6 rounded-xl border border-slate-800">
                 <h3 className="text-sm font-medium text-white mb-4">Leads por Corretor</h3>
-                <div className="h-[300px]">
+                <div className="h-64">
                   <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={displayBrokerLeads} margin={{ top: 20, right: 120, left: 150, bottom: 20 }}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
+                    <BarChart data={displayBrokerLeads} layout="vertical">
+                      <CartesianGrid strokeDasharray="3 3" stroke="#334155" horizontal={false} />
                       <XAxis type="number" stroke="#94a3b8" fontSize={12} tickLine={false} axisLine={false} />
-                      <YAxis 
-                        dataKey="name" 
-                        type="category" 
-                        stroke="#94a3b8" 
-                        fontSize={10} 
-                        tickLine={false} 
-                        axisLine={false} 
-                        width={150}
-                      />
+                      <YAxis dataKey="name" type="category" stroke="#94a3b8" fontSize={10} tickLine={false} axisLine={false} width={150} />
                       <Tooltip content={<CustomTooltip />} />
-                      <Bar dataKey="value" fill="#3b82f6" radius={[0, 4, 4, 0]}>
-                        <LabelList dataKey="value" position="right" fill="#ffffff" fontSize={11} fontWeight="bold" />
-                      </Bar>
+                      <Bar dataKey="value" fill="#3b82f6" radius={[0, 4, 4, 0]} />
                     </BarChart>
                   </ResponsiveContainer>
                 </div>
