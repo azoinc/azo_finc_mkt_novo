@@ -208,17 +208,42 @@ export function useInternoDashboard(filters: DashboardFilters) {
     
     leadsData.forEach(lead => {
       if (lead.data_criacao_cv && lead.empreendimento) {
-        // Create date object
-        const dateObj = new Date(lead.data_criacao_cv.includes('T') ? lead.data_criacao_cv : `${lead.data_criacao_cv}T12:00:00Z`);
-        const sortKey = dateObj.toISOString().split('T')[0]; // YYYY-MM-DD
-        const displayDate = dateObj.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
-        
-        const emp = lead.empreendimento || 'Outros';
-        
-        if (!lineDataMap[sortKey]) {
-          lineDataMap[sortKey] = { date: displayDate, sortKey };
+        try {
+          // Create date object com validação
+          let dateStr = lead.data_criacao_cv;
+          
+          // Verifica se a data é válida
+          if (!dateStr || typeof dateStr !== 'string') {
+            console.warn('⚠️ Data inválida encontrada:', lead.data_criacao_cv);
+            return; // Pula este registro
+          }
+          
+          // Formata a data se necessário
+          if (!dateStr.includes('T')) {
+            dateStr = `${dateStr}T12:00:00Z`;
+          }
+          
+          const dateObj = new Date(dateStr);
+          
+          // Verifica se a data é válida
+          if (isNaN(dateObj.getTime())) {
+            console.warn('⚠️ Data inválida após parse:', dateStr);
+            return; // Pula este registro
+          }
+          
+          const sortKey = dateObj.toISOString().split('T')[0]; // YYYY-MM-DD
+          const displayDate = dateObj.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+          
+          const emp = lead.empreendimento || 'Outros';
+          
+          if (!lineDataMap[sortKey]) {
+            lineDataMap[sortKey] = { date: displayDate, sortKey };
+          }
+          lineDataMap[sortKey][emp] = (lineDataMap[sortKey][emp] || 0) + 1;
+        } catch (error) {
+          console.error('❌ Erro ao processar data do lead:', lead.data_criacao_cv, error);
+          // Continua processando outros registros
         }
-        lineDataMap[sortKey][emp] = (lineDataMap[sortKey][emp] || 0) + 1;
       }
     });
 
