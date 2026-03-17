@@ -32,6 +32,8 @@ export function useInternoDashboard(filters: DashboardFilters) {
 
   useEffect(() => {
     async function fetchData() {
+      console.log('🔄 Buscando dados live do Supabase...');
+      
       if (!supabase) {
         setError('Supabase client not initialized');
         setLoading(false);
@@ -42,61 +44,168 @@ export function useInternoDashboard(filters: DashboardFilters) {
       setError(null);
 
       try {
-        // Debug: Check if supabase is properly initialized
-        if (!supabase) {
-          setError('Supabase client not initialized. Check environment variables.');
-          setLoading(false);
-          return;
-        }
-
-        const { data: testData, error: testError } = await supabase
+        // Busca dados diretos da tabela leads
+        const { data: leadsData, error: leadsError } = await supabase
           .from('leads')
-          .select('count')
-          .limit(1);
-        
-        if (testError) {
-          setError(`Supabase connection failed: ${testError.message}`);
-          setLoading(false);
-          return;
-        }
-        
-        console.log('Supabase connection successful');
+          .select('status_atual, id_cv, data_criacao_cv, origem, motivo_cancelamento, corretor, empreendimento')
+          .gte('data_criacao_cv', '2024-01-01')
+          .lte('data_criacao_cv', '2024-12-31');
 
-        // 1. Determine Date Range
-        const now = new Date();
-        let startDate = new Date();
-        let endDate = new Date();
-
-        if (filters.period === 'Todo o período') {
-          startDate = new Date(2025, 11, 1); // December 1, 2025 - Data correta!
-        } else if (filters.period === 'Últimos 30 dias') {
-          startDate.setDate(now.getDate() - 30);
-        } else if (filters.period === 'Este mês') {
-          startDate = new Date(now.getFullYear(), now.getMonth(), 1);
-        } else if (filters.period === 'Mês passado') {
-          startDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-          endDate = new Date(now.getFullYear(), now.getMonth(), 0);
-        } else if (filters.period === 'Personalizado' && filters.startDate && filters.endDate) {
-          startDate = new Date(`${filters.startDate}T00:00:00`);
-          endDate = new Date(`${filters.endDate}T23:59:59.999`);
-        } else {
-          // Default fallback
-          startDate = new Date(2025, 11, 1);
+        if (leadsError) {
+          console.error('❌ Erro na consulta leads:', leadsError);
+          throw leadsError;
         }
 
-        const formatYYYYMMDD = (date: Date) => {
-          const y = date.getFullYear();
-          const m = String(date.getMonth() + 1).padStart(2, '0');
-          const d = String(date.getDate()).padStart(2, '0');
-          return `${y}-${m}-${d}`;  // Try ISO format YYYY-MM-DD
-        };
+        console.log('✅ Dados leads recebidos:', leadsData?.length || 0, 'registros');
 
-        const formatDateForQuery = (date: Date) => {
-          const y = date.getFullYear();
-          const m = String(date.getMonth() + 1).padStart(2, '0');
-          const d = String(date.getDate()).padStart(2, '0');
-          return `${y}-${m}-${d}`;  // Try ISO format YYYY-MM-DD
-        };
+        // Processa todos os dados em tempo real
+        await processAllLeadsData(leadsData || []);
+        
+        setLoading(false);
+      } catch (error) {
+        console.error('❌ Erro em fetchData:', error);
+        setError(error instanceof Error ? error.message : 'An error occurred');
+        setLoading(false);
+      }
+    }
+
+    fetchData();
+  }, [filters.period, filters.project, filters.broker, filters.competence, filters.startDate, filters.endDate]);
+
+  // Função para processar todos os dados dos leads
+  const processAllLeadsData = async (leadsData: any[]) => {
+    console.log('🔄 Processando todos os dados live dos leads...');
+    
+    // 1. Status data
+    const statusCounts: Record<string, number> = {};
+    leadsData.forEach(lead => {
+      const status = lead.status_atual || 'Sem Status';
+      statusCounts[status] = (statusCounts[status] || 0) + 1;
+    });
+
+    const processedStatusData = Object.entries(statusCounts).map(([name, value]) => ({ name, value }));
+    setStatusData(processedStatusData);
+
+    // 2. Line Chart Data (Evolução por Empreendimento)
+    const lineDataMap: Record<string, any> = {};
+    
+    leadsData.forEach(lead => {
+      if (lead.data_criacao_cv && lead.empreendimento) {
+        // Create date object
+        const dateObj = new Date(lead.data_criacao_cv.includes('T') ? lead.data_criacao_cv : `${lead.data_criacao_cv}T12:00:00Z`);
+        const sortKey = dateObj.toISOString().split('T')[0]; // YYYY-MM-DD
+        const displayDate = dateObj.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+        
+        const emp = lead.empreendimento || 'Outros';
+        
+        if (!lineDataMap[sortKey]) {
+          lineDataMap[sortKey] = { date: displayDate, sortKey };
+        }
+        lineDataMap[sortKey][emp] = (lineDataMap[sortKey][emp] || 0) + 1;
+      }
+    });
+
+    // Sort by date and convert to array
+    const sortedLineData = Object.values(lineDataMap)
+      .sort((a, b) => a.sortKey.localeCompare(b.sortKey))
+      .map(({ sortKey, ...rest }) => rest);
+
+    setLineData(sortedLineData);
+
+    // Extract unique empreendimentos for line chart keys
+    const empTotals: Record<string, number> = {};
+    leadsData.forEach(lead => {
+      if (lead.empreendimento) {
+        empTotals[lead.empreendimento] = (empTotals[lead.empreendimento] || 0) + 1;
+      }
+    });
+
+    const processedLineChartKeys = Object.entries(empTotals)
+      .sort(([,a], [,b]) => b - a)
+      .slice(0, 8)
+      .map(([emp]) => emp);
+
+    setLineChartKeys(processedLineChartKeys);
+
+    // 3. Origin data
+    const originCounts: Record<string, number> = {};
+    leadsData.forEach(lead => {
+      const origin = lead.origem || 'Outros';
+      originCounts[origin] = (originCounts[origin] || 0) + 1;
+    });
+
+    const processedOriginData = Object.entries(originCounts).map(([name, value]) => ({ name, value }));
+    setOriginData(processedOriginData);
+
+    // 4. Broker leads
+    const brokerCounts: Record<string, number> = {};
+    leadsData.forEach(lead => {
+      const broker = lead.corretor || 'Sem Corretor';
+      brokerCounts[broker] = (brokerCounts[broker] || 0) + 1;
+    });
+
+    const processedBrokerLeads = Object.entries(brokerCounts).map(([name, value]) => ({ name, value }));
+    setBrokerLeads(processedBrokerLeads);
+
+    // 5. Cancel reasons
+    const cancelCounts: Record<string, number> = {};
+    leadsData.forEach(lead => {
+      if (lead.motivo_cancelamento) {
+        const reason = lead.motivo_cancelamento;
+        cancelCounts[reason] = (cancelCounts[reason] || 0) + 1;
+      }
+    });
+
+    const processedCancelReasons = Object.entries(cancelCounts)
+      .map(([reason, count]) => ({ reason, count }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 5);
+
+    setCancelReasons(processedCancelReasons);
+
+    // 6. Set totals
+    setTotalLeads(leadsData.length);
+    setHottestStatusData({ 
+      visita: statusCounts['Visita Realizada'] || 0, 
+      agendamento: statusCounts['Agendamento'] || 0 
+    });
+
+    // 7. Set empty data for charts not yet implemented
+    setFunnelData([]);
+    setStackedStatusData([]);
+    setAvailableMonths([]);
+    setBrokerTimeData([]);
+    setBrokerActionsData([]);
+
+    console.log('📊 Todos os dados live processados:', {
+      statusData: processedStatusData.length,
+      lineData: sortedLineData.length,
+      lineChartKeys: processedLineChartKeys.length,
+      originData: processedOriginData.length,
+      brokerLeads: processedBrokerLeads.length,
+      cancelReasons: processedCancelReasons.length,
+      totalLeads: leadsData.length
+    });
+  };
+
+  return {
+    loading,
+    error,
+    statusData,
+    funnelData,
+    stackedStatusData,
+    availableMonths,
+    brokerTimeData,
+    brokerActionsData,
+    originData,
+    cancelReasons,
+    brokerLeads,
+    lineData,
+    lineChartKeys,
+    totalLeads,
+    hottestStatusData
+  };
+}
 
         const startDateStr = formatYYYYMMDD(startDate);
         const endDateStr = formatYYYYMMDD(endDate);

@@ -5,7 +5,7 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
   LineChart, Line, FunnelChart, Funnel, LabelList, Cell
 } from 'recharts';
-import { useInternoDashboardWithCache } from '../hooks/useInternoDashboardWithCache';
+import { useInternoDashboard } from '../hooks/useInternoDashboard';
 import { DateRangePicker, DateRange } from '../components/DateRangePicker';
 import { FilterMenu } from '../components/FilterMenu';
 
@@ -210,7 +210,7 @@ export default function InternoDashboard({ onBack }: Props) {
   const { 
     loading, error, statusData, funnelData, stackedStatusData, availableMonths, brokerTimeData, brokerActionsData, 
     originData, cancelReasons, brokerLeads, lineData, lineChartKeys, totalLeads, hottestStatusData 
-  } = useInternoDashboardWithCache(filters);
+  } = useInternoDashboard(filters);
 
   const displayStatusData = statusData;
   const displayFunnelData = funnelData;
