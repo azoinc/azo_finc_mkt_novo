@@ -435,24 +435,14 @@ export default function InternoDashboard({ onBack }: Props) {
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <div className="bg-[#242731] p-6 rounded-xl border border-slate-800">
                 <h3 className="text-sm font-medium text-white mb-4">Origem</h3>
-                <div className="h-[300px]">
+                <div className="h-64">
                   <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={displayOriginData} margin={{ top: 20, right: 120, left: 120, bottom: 20 }}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
+                    <BarChart data={displayOriginData} layout="vertical">
+                      <CartesianGrid strokeDasharray="3 3" stroke="#334155" horizontal={false} />
                       <XAxis type="number" stroke="#94a3b8" fontSize={12} tickLine={false} axisLine={false} />
-                      <YAxis 
-                        dataKey="name" 
-                        type="category" 
-                        stroke="#94a3b8" 
-                        fontSize={12} 
-                        tickLine={false} 
-                        axisLine={false} 
-                        width={120}
-                      />
+                      <YAxis dataKey="name" type="category" stroke="#94a3b8" fontSize={12} tickLine={false} axisLine={false} width={80} />
                       <Tooltip content={<CustomTooltip />} />
-                      <Bar dataKey="value" fill="#3b82f6" radius={[0, 4, 4, 0]}>
-                        <LabelList dataKey="value" position="right" fill="#ffffff" fontSize={11} fontWeight="bold" />
-                      </Bar>
+                      <Bar dataKey="value" fill="#3b82f6" radius={[0, 4, 4, 0]} />
                     </BarChart>
                   </ResponsiveContainer>
                 </div>
@@ -537,7 +527,7 @@ export default function InternoDashboard({ onBack }: Props) {
               <h3 className="text-sm font-medium text-white mb-4">Tempo Médio de Recepção do Lead (Horas)</h3>
               <div className="h-96">
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={displayBrokerTime.length > 0 ? displayBrokerTime : mockBrokerTime} margin={{ top: 20, right: 120, left: 120, bottom: 20 }}>
+                  <BarChart data={displayBrokerTime} layout="vertical">
                     <CartesianGrid strokeDasharray="3 3" stroke="#334155" horizontal={false} />
                     <XAxis type="number" stroke="#94a3b8" fontSize={12} tickLine={false} axisLine={false} />
                     <YAxis 
@@ -550,9 +540,7 @@ export default function InternoDashboard({ onBack }: Props) {
                       width={120}
                     />
                     <Tooltip content={<CustomTooltip />} />
-                    <Bar dataKey="time" fill="#3b82f6" radius={[0, 4, 4, 0]}>
-                      <LabelList dataKey="time" position="right" fill="#ffffff" fontSize={11} fontWeight="bold" />
-                    </Bar>
+                    <Bar dataKey="time" fill="#10b981" radius={[0, 4, 4, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
@@ -562,7 +550,7 @@ export default function InternoDashboard({ onBack }: Props) {
               <h3 className="text-sm font-medium text-white mb-4">Ações no CV</h3>
               <div className="h-96">
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={displayBrokerActions.length > 0 ? displayBrokerActions : mockBrokerActions} margin={{ top: 20, right: 120, left: 120, bottom: 20 }}>
+                  <BarChart data={displayBrokerActions} layout="vertical">
                     <CartesianGrid strokeDasharray="3 3" stroke="#334155" horizontal={false} />
                     <XAxis type="number" stroke="#94a3b8" fontSize={12} tickLine={false} axisLine={false} />
                     <YAxis 
@@ -575,9 +563,7 @@ export default function InternoDashboard({ onBack }: Props) {
                       width={120}
                     />
                     <Tooltip content={<CustomTooltip />} />
-                    <Bar dataKey="actions" fill="#3b82f6" radius={[0, 4, 4, 0]}>
-                      <LabelList dataKey="actions" position="right" fill="#ffffff" fontSize={11} fontWeight="bold" />
-                    </Bar>
+                    <Bar dataKey="actions" fill="#10b981" radius={[0, 4, 4, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
@@ -640,10 +626,16 @@ export default function InternoDashboard({ onBack }: Props) {
 
             {/* Stacked Bar Chart */}
             <div className="bg-[#242731] p-6 rounded-xl border border-slate-800">
-              <h3 className="text-sm font-medium text-slate-400 mb-4">Leads por Empreendimento (Meta vs Google)</h3>
+              <h3 className="text-sm font-medium text-white mb-4">Leads por Empreendimento (Meta vs Google)</h3>
               <div className="h-80">
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={mockAdsProjectData}>
+                  <BarChart data={[
+                    { name: 'Ipanema', meta: 95, google: 100 },
+                    { name: 'Casa da Mata', meta: 95, google: 95 },
+                    { name: 'Insigna', meta: 90, google: 30 },
+                    { name: 'Verter', meta: 95, google: 0 },
+                    { name: 'Ares', meta: 90, google: 0 },
+                  ]}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#334155" vertical={false} />
                     <XAxis dataKey="name" stroke="#94a3b8" fontSize={12} tickLine={false} axisLine={false} />
                     <YAxis stroke="#94a3b8" fontSize={12} tickLine={false} axisLine={false} />
@@ -658,10 +650,18 @@ export default function InternoDashboard({ onBack }: Props) {
 
             {/* Line Chart */}
             <div className="bg-[#242731] p-6 rounded-xl border border-slate-800">
-              <h3 className="text-sm font-medium text-slate-400 mb-4">Evolução de Leads (Meta vs Google)</h3>
+              <h3 className="text-sm font-medium text-white mb-4">Evolução de Leads (Meta vs Google)</h3>
               <div className="h-80">
                 <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={mockAdsTimeData}>
+                  <LineChart data={[
+                    { date: '01/12', meta: 10, google: 0 },
+                    { date: '05/12', meta: 8, google: 0 },
+                    { date: '10/12', meta: 15, google: 1 },
+                    { date: '15/12', meta: 12, google: 0 },
+                    { date: '20/12', meta: 20, google: 0 },
+                    { date: '25/12', meta: 18, google: 0 },
+                    { date: '30/12', meta: 25, google: 2 },
+                  ]}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#334155" vertical={false} />
                     <XAxis dataKey="date" stroke="#94a3b8" fontSize={12} tickLine={false} axisLine={false} />
                     <YAxis stroke="#94a3b8" fontSize={12} tickLine={false} axisLine={false} />
@@ -675,7 +675,9 @@ export default function InternoDashboard({ onBack }: Props) {
             </div>
             
             <div className="bg-blue-900/20 border border-blue-800/50 p-4 rounded-xl flex items-start space-x-3">
-              <Megaphone className="text-blue-400 mt-0.5" size={20} />
+              <svg className="text-blue-400 mt-0.5" width={20} height={20} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z" />
+              </svg>
               <div>
                 <h4 className="text-blue-400 font-medium">Integração com Reportei</h4>
                 <p className="text-blue-300/70 text-sm mt-1">
