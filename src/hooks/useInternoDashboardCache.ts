@@ -107,12 +107,12 @@ export function useInternoDashboardCache(filters: DashboardFilters) {
 
   // Inicialização - carrega cache existente
   useEffect(() => {
-    const existingCache = loadCache();
-    if (existingCache) {
-      setCacheData(existingCache);
-      lastDataHash.current = existingCache.checksum;
-      console.log('📋 Cache inicial carregado');
-    }
+    // Força limpeza do cache para evitar dados corrompidos
+    console.log('🗑️ Forçando limpeza do cache para evitar erros...');
+    localStorage.removeItem(CACHE_KEY);
+    setCacheData(null);
+    lastDataHash.current = '';
+    console.log('📋 Cache limpo, iniciando com dados live');
   }, []);
 
   // Monitora mudanças nos dados live

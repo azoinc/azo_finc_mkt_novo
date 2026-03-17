@@ -206,15 +206,23 @@ export function useInternoDashboard(filters: DashboardFilters) {
     // 2. Line Chart Data (Evolução por Empreendimento)
     const lineDataMap: Record<string, any> = {};
     
-    leadsData.forEach(lead => {
+    console.log('🔍 Iniciando processamento de line chart com', leadsData.length, 'leads');
+    
+    leadsData.forEach((lead, index) => {
       if (lead.data_criacao_cv && lead.empreendimento) {
         try {
-          // Create date object com validação
+          // Create date object com validação EXTREMA
           let dateStr = lead.data_criacao_cv;
+          
+          console.log(`🔍 Processando lead ${index}:`, {
+            data_criacao_cv: lead.data_criacao_cv,
+            empreendimento: lead.empreendimento,
+            tipo: typeof lead.data_criacao_cv
+          });
           
           // Verifica se a data é válida
           if (!dateStr || typeof dateStr !== 'string') {
-            console.warn('⚠️ Data inválida encontrada:', lead.data_criacao_cv);
+            console.warn(`⚠️ Lead ${index} - Data inválida:`, dateStr);
             return; // Pula este registro
           }
           
@@ -227,7 +235,13 @@ export function useInternoDashboard(filters: DashboardFilters) {
           
           // Verifica se a data é válida
           if (isNaN(dateObj.getTime())) {
-            console.warn('⚠️ Data inválida após parse:', dateStr);
+            console.warn(`⚠️ Lead ${index} - Date inválido:`, dateStr);
+            return; // Pula este registro
+          }
+          
+          // VALIDAÇÃO FINAL ANTES DE USAR toLocaleString
+          if (!dateObj || typeof dateObj.toLocaleString !== 'function') {
+            console.error(`❌ Lead ${index} - dateObj sem toLocaleString:`, dateObj);
             return; // Pula este registro
           }
           
@@ -240,8 +254,10 @@ export function useInternoDashboard(filters: DashboardFilters) {
             lineDataMap[sortKey] = { date: displayDate, sortKey };
           }
           lineDataMap[sortKey][emp] = (lineDataMap[sortKey][emp] || 0) + 1;
+          
+          console.log(`✅ Lead ${index} processado:`, { sortKey, displayDate, emp });
         } catch (error) {
-          console.error('❌ Erro ao processar data do lead:', lead.data_criacao_cv, error);
+          console.error(`❌ Erro ao processar lead ${index}:`, lead.data_criacao_cv, error);
           // Continua processando outros registros
         }
       }
