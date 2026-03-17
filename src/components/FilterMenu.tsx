@@ -14,7 +14,31 @@ interface FilterMenuProps {
 }
 
 const competenceOptions = [
-  { value: 'Atual', label: 'Atual (Tempo Real)' }
+  { value: 'Atual', label: 'Atual (Tempo Real)' },
+  { value: '2025-01-01', label: 'Janeiro/2025' },
+  { value: '2025-02-01', label: 'Fevereiro/2025' },
+  { value: '2025-03-01', label: 'Março/2025' },
+  { value: '2025-04-01', label: 'Abril/2025' },
+  { value: '2025-05-01', label: 'Maio/2025' },
+  { value: '2025-06-01', label: 'Junho/2025' },
+  { value: '2025-07-01', label: 'Julho/2025' },
+  { value: '2025-08-01', label: 'Agosto/2025' },
+  { value: '2025-09-01', label: 'Setembro/2025' },
+  { value: '2025-10-01', label: 'Outubro/2025' },
+  { value: '2025-11-01', label: 'Novembro/2025' },
+  { value: '2025-12-01', label: 'Dezembro/2025' },
+  { value: '2024-01-01', label: 'Janeiro/2024' },
+  { value: '2024-02-01', label: 'Fevereiro/2024' },
+  { value: '2024-03-01', label: 'Março/2024' },
+  { value: '2024-04-01', label: 'Abril/2024' },
+  { value: '2024-05-01', label: 'Maio/2024' },
+  { value: '2024-06-01', label: 'Junho/2024' },
+  { value: '2024-07-01', label: 'Julho/2024' },
+  { value: '2024-08-01', label: 'Agosto/2024' },
+  { value: '2024-09-01', label: 'Setembro/2024' },
+  { value: '2024-10-01', label: 'Outubro/2024' },
+  { value: '2024-11-01', label: 'Novembro/2024' },
+  { value: '2024-12-01', label: 'Dezembro/2024' }
 ];
 
 const monthOptions = [
@@ -39,8 +63,21 @@ export const FilterMenu: React.FC<FilterMenuProps> = ({ filters, onFiltersChange
     setOpenSection(openSection === section ? null : section);
   };
 
-  // Parse competence to get year and month - Simplificado
+  // Parse competence to get year and month - Restaurado
   const getCompetenceParts = () => {
+    if (filters.competence === 'Atual') {
+      const now = new Date();
+      const year = now.getFullYear().toString();
+      const month = String(now.getMonth() + 1).padStart(2, '0');
+      return { year, month, display: `${year}-${month}` };
+    }
+    if (filters.competence && filters.competence.length === 7) {
+      return { 
+        year: filters.competence.substring(0, 4), 
+        month: filters.competence.substring(5, 7),
+        display: filters.competence
+      };
+    }
     return { year: '', month: '', display: 'Atual' };
   };
 
@@ -48,7 +85,7 @@ export const FilterMenu: React.FC<FilterMenuProps> = ({ filters, onFiltersChange
 
   return (
     <div className="flex items-center space-x-3">
-      {/* Competence Selector - Simplificado */}
+      {/* Competence Selector - Restaurado */}
       <div className="flex items-center space-x-2 text-slate-400 bg-[#1a1c23] px-3 py-1.5 rounded-lg border border-slate-700">
         <span className="text-sm font-medium">Competência:</span>
         
