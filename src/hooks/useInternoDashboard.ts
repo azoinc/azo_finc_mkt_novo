@@ -74,7 +74,7 @@ export function useInternoDashboard(filters: DashboardFilters) {
         const startDateStr = formatYYYYMMDD(startDate);
         const endDateStr = formatYYYYMMDD(endDate);
 
-        // 1. Fetch leads data from the main leads table
+        // 1. Fetch leads data from the main leads table - SEM LIMITE
         let leadsQuery = supabase
           .from('leads')
           .select('status_atual, id_cv, data_criacao_cv, origem, motivo_cancelamento, corretor, empreendimento')
@@ -180,7 +180,7 @@ export function useInternoDashboard(filters: DashboardFilters) {
           const sortedEmpKeys = Object.entries(empTotals)
             .sort((a, b) => b[1] - a[1])
             .map(entry => entry[0]);
-          setLineChartKeys(sortedEmpKeys.slice(0, 8)); // Limit to top 8
+          setLineChartKeys(sortedEmpKeys); // Sem limite - todos os empreendimentos
 
           // --- Simple Funnel Data (Mock for now) ---
           const mockFunnelData = [

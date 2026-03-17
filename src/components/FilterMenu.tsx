@@ -13,14 +13,9 @@ interface FilterMenuProps {
   onFiltersChange: (filters: any) => void;
 }
 
-const getYearOptions = () => {
-  const currentYear = new Date().getFullYear();
-  const years = [];
-  for (let year = currentYear; year >= currentYear - 2; year--) {
-    years.push({ value: year.toString(), label: year.toString() });
-  }
-  return years;
-};
+const competenceOptions = [
+  { value: 'Atual', label: 'Atual (Tempo Real)' }
+];
 
 const monthOptions = [
   { value: '01', label: 'Janeiro' },
@@ -34,7 +29,7 @@ const monthOptions = [
   { value: '09', label: 'Setembro' },
   { value: '10', label: 'Outubro' },
   { value: '11', label: 'Novembro' },
-  { value: '12', label: 'Dezembro' },
+  { value: '12', label: 'Dezembro' }
 ];
 
 export const FilterMenu: React.FC<FilterMenuProps> = ({ filters, onFiltersChange }) => {
@@ -44,73 +39,32 @@ export const FilterMenu: React.FC<FilterMenuProps> = ({ filters, onFiltersChange
     setOpenSection(openSection === section ? null : section);
   };
 
-  // Parse competence to get year and month
+  // Parse competence to get year and month - Simplificado
   const getCompetenceParts = () => {
-    if (filters.competence === 'Atual') {
-      const now = new Date();
-      const year = now.getFullYear().toString();
-      const month = String(now.getMonth() + 1).padStart(2, '0');
-      return { year, month, display: `${year}-${month}` };
-    }
-    if (filters.competence && filters.competence.length === 7) {
-      return { 
-        year: filters.competence.substring(0, 4), 
-        month: filters.competence.substring(5, 7),
-        display: filters.competence
-      };
-    }
-    return { year: '', month: '', display: '' };
+    return { year: '', month: '', display: 'Atual' };
   };
 
   const competenceParts = getCompetenceParts();
 
   return (
     <div className="flex items-center space-x-3">
-      {/* Year/Month Competence Selectors */}
+      {/* Competence Selector - Simplificado */}
       <div className="flex items-center space-x-2 text-slate-400 bg-[#1a1c23] px-3 py-1.5 rounded-lg border border-slate-700">
         <span className="text-sm font-medium">Competência:</span>
         
-        {/* Year Selector */}
         <select
-          id="competence-year"
-          name="competence-year"
-          value={competenceParts.year}
+          id="competence"
+          name="competence"
+          value={filters.competence}
           onChange={(e) => {
-            const year = e.target.value;
-            const month = competenceParts.month;
-            onFiltersChange({ ...filters, competence: month ? `${year}-${month}` : 'Atual' });
-          }}
-          className="bg-transparent border-none outline-none text-sm text-slate-200 mr-2"
-        >
-          <option value="">Ano</option>
-          {getYearOptions().map(opt => (
-            <option key={opt.value} value={opt.value}>{opt.label}</option>
-          ))}
-        </select>
-
-        {/* Month Selector */}
-        <select
-          id="competence-month"
-          name="competence-month"
-          value={competenceParts.month}
-          onChange={(e) => {
-            const month = e.target.value;
-            const year = competenceParts.year;
-            onFiltersChange({ ...filters, competence: month ? `${year}-${month}` : 'Atual' });
+            onFiltersChange({ ...filters, competence: e.target.value });
           }}
           className="bg-transparent border-none outline-none text-sm text-slate-200"
-          disabled={!competenceParts.year}
         >
-          <option value="">Mês</option>
-          {monthOptions.map(opt => (
+          {competenceOptions.map(opt => (
             <option key={opt.value} value={opt.value}>{opt.label}</option>
           ))}
         </select>
-
-        {/* Display Current Competence */}
-        <span className="text-white text-xs px-2 py-1 rounded bg-[#4a0523]">
-          {filters.competence === 'Atual' ? 'Atual' : filters.competence}
-        </span>
       </div>
 
       {/* Project Dropdown */}
