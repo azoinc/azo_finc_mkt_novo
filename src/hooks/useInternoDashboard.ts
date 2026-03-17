@@ -58,14 +58,20 @@ export function useInternoDashboard(filters: DashboardFilters) {
         
         console.log('✅ Conexão Supabase OK');
 
-        // Busca dados diretos da tabela leads com range mais amplo para debug
-        console.log('🔍 Buscando dados com range ampliado...');
+        // Busca dados diretos da tabela leads com range dinâmico
+        console.log('🔍 Buscando dados a partir de 01/12/2025 (sem limite superior)...');
+        
+        // Data de início fixa: 01/12/2025
+        const startDate = '2025-12-01';
+        // Sem data de fim - busca tudo até o presente
+        
+        console.log(`🔍 Range: ${startDate} até presente (dinâmico)`);
+        
         const { data: leadsData, error: leadsError } = await supabase
           .from('leads')
           .select('status_atual, id_cv, data_criacao_cv, origem, motivo_cancelamento, corretor, empreendimento')
-          .gte('data_criacao_cv', '2020-01-01')  // Range mais amplo
-          .lte('data_criacao_cv', '2025-12-31')
-          .limit(1000);  // Limitar para debug
+          .gte('data_criacao_cv', startDate)
+          .limit(10000);  // Buscar até 10.000 registros
 
         if (leadsError) {
           console.error('❌ Erro na consulta leads:', leadsError);
@@ -74,43 +80,39 @@ export function useInternoDashboard(filters: DashboardFilters) {
 
         console.log('✅ Dados leads recebidos:', leadsData?.length || 0, 'registros');
         
-        // Determina quais dados usar
-        let finalData = leadsData;
-        
-        // Se não encontrou dados com filtro, usa os dados sem filtro
-        if (!leadsData || leadsData.length === 0) {
-          console.log('⚠️ Nenhum registro encontrado. Tentando sem filtro de data...');
-          
-          // Tenta sem filtro de data
-          const { data: allData, error: allError } = await supabase
-            .from('leads')
-            .select('status_atual, id_cv, data_criacao_cv, origem, motivo_cancelamento, corretor, empreendimento')
-            .limit(100);
-            
-          if (allError) {
-            console.error('❌ Erro na consulta sem filtro:', allError);
-            throw allError;
-          }
-          
-          console.log('✅ Dados sem filtro:', allData?.length || 0, 'registros');
-          
-          if (allData && allData.length > 0) {
-            console.log('🔍 Primeiro registro (sem filtro):', allData[0]);
-            finalData = allData;
-          }
-        } else {
-          // Debug: Mostra primeiros registros
+        // Debug: Mostra primeiros registros
+        if (leadsData && leadsData.length > 0) {
           console.log('🔍 Primeiro registro:', leadsData[0]);
           console.log('🔍 Colunas disponíveis:', Object.keys(leadsData[0]));
         }
-
-        // Processa todos os dados em tempo real
-        if (finalData && finalData.length > 0) {
-          console.log('✅ Processando dados reais...');
-          await processAllLeadsData(finalData);
-        } else {
-          console.log('⚠️ Nenhum dado encontrado, usando fallback mock...');
+        
+        // Se encontrou mais de 1000, mostra info
+        if (leadsData && leadsData.length >= 1000) {
+          console.log('🔍 Limite de 10.000 atingido, existem mais dados na tabela');
+        }
+        
+        // Mostra informações sobre o range de datas encontrado
+        if (leadsData && leadsData.length > 0) {
+          const dates = leadsData
+            .map(lead => lead.data_criacao_cv)
+            .filter(date => date)
+            .sort();
+          
+          if (dates.length > 0) {
+            console.log(`📅 Range de dados encontrado: ${dates[0]} até ${dates[dates.length - 1]} (dinâmico)`);
+          }
+        }
+        
+        // Determina quais dados usar
+        let finalData = leadsData;
+        
+        // Se não encontrou dados, usa dados mock (fallback)
+        if (!leadsData || leadsData.length === 0) {
+          console.log('⚠️ Nenhum registro encontrado. Usando dados mock...');
           await processMockData();
+        } else {
+          console.log('✅ Processando dados reais...');
+          await processAllLeadsData(leadsData);
         }
         
         setLoading(false);
