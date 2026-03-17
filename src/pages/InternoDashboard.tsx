@@ -371,31 +371,12 @@ export default function InternoDashboard({ onBack }: Props) {
             {/* Line Chart Row */}
             <div className="bg-[#242731] p-6 rounded-xl border border-slate-800">
               <h3 className="text-sm font-medium text-white mb-4">Evolução de Leads por Empreendimento</h3>
-              {/* Debug temporário */}
-              <div className="mb-2 text-xs text-slate-500">
-                LineData: {displayLineData.length} itens | LineKeys: {displayLineChartKeys.length} chaves
-              </div>
-              <div className="mb-2 text-xs text-slate-500">
-                First LineData: {displayLineData[0] ? JSON.stringify(displayLineData[0]) : 'N/A'}
-              </div>
-              <div className="h-80 border border-red-500">
+              <div className="h-80">
                 <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={displayLineData} margin={{ top: 20, right: 30, left: 20, bottom: 20 }}>
+                  <LineChart data={displayLineData}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#334155" vertical={false} />
-                    <XAxis 
-                      dataKey="date" 
-                      stroke="#94a3b8" 
-                      fontSize={12} 
-                      tickLine={false} 
-                      axisLine={false} 
-                    />
-                    <YAxis 
-                      stroke="#94a3b8" 
-                      fontSize={12} 
-                      tickLine={false} 
-                      axisLine={false}
-                      domain={[0, 'dataMax']}
-                    />
+                    <XAxis dataKey="date" stroke="#94a3b8" fontSize={12} tickLine={false} axisLine={false} />
+                    <YAxis stroke="#94a3b8" fontSize={12} tickLine={false} axisLine={false} />
                     <Tooltip content={<CustomTooltip />} />
                     <Legend wrapperStyle={{ fontSize: '12px', color: '#94a3b8' }} />
                     {displayLineChartKeys.map((key, idx) => (
@@ -403,10 +384,9 @@ export default function InternoDashboard({ onBack }: Props) {
                         key={key}
                         type="monotone" 
                         dataKey={key} 
-                        stroke={['#3b82f6', '#f59e0b', '#10b981', '#ef4444'][idx % 4]} 
-                        strokeWidth={3} 
-                        dot={{ r: 4 }}
-                        activeDot={{ r: 6 }}
+                        stroke={['#3b82f6', '#f59e0b', '#10b981', '#8b5cf6', '#ec4899', '#ef4444', '#14b8a6', '#f97316'][idx % 8]} 
+                        strokeWidth={2} 
+                        dot={false} 
                       />
                     ))}
                   </LineChart>
