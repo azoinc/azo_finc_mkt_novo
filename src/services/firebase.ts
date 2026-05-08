@@ -1,6 +1,6 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
-import { getFirestore } from 'firebase/firestore';
+import { getFirestore, connectFirestoreEmulator } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
 import { getAnalytics } from "firebase/analytics";
 
@@ -18,8 +18,8 @@ const app = initializeApp(firebaseConfig);
 export const analytics = typeof window !== 'undefined' ? getAnalytics(app) : null;
 export const auth = getAuth(app);
 
-// Use a specific database ID if provided, otherwise default to azo-dash-3-0
-//const databaseId = import.meta.env.VITE_FIREBASE_DATABASE_ID || "azo-dash-3-0";
-export const db = getFirestore(app);
+// Get Firestore with custom database ID if provided
+const databaseId = import.meta.env.VITE_FIREBASE_DATABASE_ID;
+export const db = databaseId ? getFirestore(app, databaseId) : getFirestore(app);
 
 export const storage = getStorage(app);
