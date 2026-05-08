@@ -3,7 +3,7 @@ import { useAuth } from '../context/AuthContext';
 import { LayoutDashboard, Users, ArrowRight } from 'lucide-react';
 
 interface Props {
-  onSelect: (dashboard: 'comercial' | 'interno') => void;
+  onSelect: (dashboard: 'comercial' | 'interno' | 'gdash') => void;
 }
 
 export default function DashboardSelection({ onSelect }: Props) {
@@ -17,7 +17,7 @@ export default function DashboardSelection({ onSelect }: Props) {
           <p className="text-slate-500 text-lg">Escolha qual área você deseja acessar</p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-12">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-12">
           {/* Dashboard Comercial / Mkt */}
           <button
             onClick={() => onSelect('comercial')}

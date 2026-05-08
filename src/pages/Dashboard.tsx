@@ -1,11 +1,27 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { useExpense } from '../context/ExpenseContext';
 import { PUBLICIDADE_CATEGORIES, MANUTENCAO_STAND_CATEGORIES, INSTITUCIONAL_CATEGORIES, PROJECTS_BY_CITY, ALL_PROJECTS } from '../types';
 import { formatCurrency, MONTHS } from '../utils';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid, Legend, ComposedChart, Line } from 'recharts';
 import { TrendingUp, TrendingDown, DollarSign, Target, Users, ShoppingCart, Percent, Activity } from 'lucide-react';
+import { allCommercialProjects } from '../data/commercialProjects';
+import { useInternoDashboard } from '../hooks/useInternoDashboard';
+import { useSiengeIntegration } from '../hooks/useSiengeIntegration';
 
 const COLORS = ['#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#14b8a6', '#f97316', '#6366f1', '#84cc16'];
+
+const getCommercialProject = (p: string) => {
+  return allCommercialProjects.find(cp => 
+    cp.name.toLowerCase().includes(p.toLowerCase()) || 
+    p.toLowerCase().includes(cp.name.toLowerCase()) ||
+    (p === 'A Noite' && cp.name === 'Noite') ||
+    (p === 'Ipanema' && cp.name === 'Ar Ipanema') ||
+    (p === 'Gávea' && cp.name === 'Gávea 99') ||
+    (p === 'Ares' && cp.name === 'Ares Home') ||
+    (p === 'Verter' && cp.name === 'Verter Cambuí') ||
+    (p === 'Natus' && cp.name === 'Natus Home')
+  );
+};
 
 const PROJECT_COLORS: Record<string, string> = {
   'Gávea': 'bg-emerald-500',
@@ -19,26 +35,64 @@ const PROJECT_COLORS: Record<string, string> = {
 };
 
 export default function Dashboard() {
-  const { data, currentMonthData, selectedCity, selectedProject, filteredTransactions, transactions, timelineEvents, selectedMonthId } = useExpense();
+  const { data, currentMonthData, selectedCity, selectedProject, filteredTransactions, transactions, timelineEvents, selectedMonthId, filteredCommercialRecords, salesGoals, selectedYear } = useExpense();
+
+  const isAllMonths = selectedMonthId.endsWith('-ALL');
+  const [yearStr, monthStr] = selectedMonthId.split('-');
+  const year = parseInt(yearStr);
+  const month = parseInt(monthStr);
+
+  const dashboardFilters = useMemo(() => {
+    let period = 'Personalizado';
+    let startDate = '';
+    let endDate = '';
+
+    if (isAllMonths) {
+      if (yearStr === 'ALL') {
+        period = 'Todo o período';
+      } else {
+        startDate = `${year}-01-01`;
+        endDate = `${year}-12-31`;
+      }
+    } else {
+      startDate = `${year}-${monthStr}-01`;
+      const lastDay = new Date(year, month, 0).getDate();
+      endDate = `${year}-${monthStr}-${lastDay.toString().padStart(2, '0')}`;
+    }
+
+    return {
+      period,
+      startDate,
+      endDate,
+      project: selectedProject === 'ALL' ? 'Todos' : selectedProject,
+      city: selectedCity,
+      broker: 'Todos',
+      competence: 'Atual'
+    };
+  }, [selectedMonthId, selectedProject, selectedCity, isAllMonths, yearStr, monthStr, year, month]);
+
+  const { totalLeads: fetchedLeads, hottestStatusData } = useInternoDashboard(dashboardFilters);
+  const siengeData = useSiengeIntegration(dashboardFilters.startDate, dashboardFilters.endDate);
 
   if (!currentMonthData) return <div>Carregando...</div>;
 
   const totalPublicidade = PUBLICIDADE_CATEGORIES.reduce((acc, cat) => acc + filteredTransactions.filter(t => t.category === cat).reduce((sum, t) => sum + t.amount, 0), 0);
   const totalStand = MANUTENCAO_STAND_CATEGORIES.reduce((acc, cat) => acc + filteredTransactions.filter(t => t.category === cat).reduce((sum, t) => sum + t.amount, 0), 0);
   const totalInstitucional = INSTITUCIONAL_CATEGORIES.reduce((acc, cat) => acc + filteredTransactions.filter(t => t.category === cat).reduce((sum, t) => sum + t.amount, 0), 0);
-  const totalGasto = totalPublicidade + totalStand + totalInstitucional;
+  const totalProdutos = filteredTransactions.filter(t => t.category === 'PRODUTOS GERAIS').reduce((sum, t) => sum + t.amount, 0);
+  const totalGasto = totalPublicidade + totalStand + totalInstitucional + totalProdutos;
 
   let budgetPub = 0;
   let budgetStand = 0;
   let budgetInst = 0;
   let budgetProdutos = 0;
-  let totalLeads = 0;
+  let totalLeads = fetchedLeads || 0;
   let totalVendas = 0;
   let totalVGV = 0;
   let totalVgvProduto = 0;
   let totalEstoque = 0;
   let totalMetaVendas = 0;
-  let totalVisitasOn = 0;
+  let totalVisitasOn = hottestStatusData?.visita || 0;
   let totalVisitasOff = 0;
 
   const projectsToInclude = selectedProject !== 'ALL' 
@@ -47,6 +101,15 @@ export default function Dashboard() {
       ? PROJECTS_BY_CITY[selectedCity] 
       : ALL_PROJECTS;
 
+  filteredCommercialRecords.forEach(r => {
+    if (projectsToInclude.includes(r.project)) {
+      if (r.type === 'venda') {
+        totalVendas += r.qtde || 0;
+        totalVGV += r.vgvNominal || 0;
+      }
+    }
+  });
+
   projectsToInclude.forEach(p => {
     const b = currentMonthData.budgets[p];
     if (b) {
@@ -54,25 +117,43 @@ export default function Dashboard() {
       budgetStand += b.stand || 0;
       budgetInst += b.institucional || 0;
       budgetProdutos += b.produtos || 0;
-      totalVgvProduto += b.vgv || 0;
-      totalEstoque += b.estoqueUnid || 0;
-      totalMetaVendas += b.metaVendas || 0;
     }
     
+    let commProjTargetVgv = 0;
+    let commProjTargetUnid = 0;
+    let commProjTotalUnid = 0;
+
+    const yearGoal = salesGoals.find((g) => g.year === selectedYear);
+    if (yearGoal) {
+      const match = yearGoal.projects.find((pg) => {
+        const pn = p.toLowerCase();
+        const gn = pg.name.toLowerCase();
+        return pn.includes(gn) || gn.includes(pn) || 
+               (p === 'A Noite' && pg.name === 'Noite') ||
+               (p === 'Ipanema' && pg.name === 'Ar Ipanema') ||
+               (p === 'Gávea' && pg.name === 'Gávea 99') ||
+               (p === 'Ares' && pg.name === 'Ares Home') ||
+               (p === 'Verter' && pg.name === 'Verter Cambuí') ||
+               (p === 'Natus' && pg.name === 'Natus Home');
+      });
+      if (match) {
+        commProjTargetVgv = match.target?.vgv || 0;
+        commProjTargetUnid = match.target?.unid || 0;
+        commProjTotalUnid = (match.q1?.unid || 0) + (match.q2?.unid || 0) + (match.q3?.unid || 0) + (match.q4?.unid || 0);
+      }
+    }
+
+    totalVgvProduto += commProjTargetVgv;
+    totalEstoque += commProjTargetUnid;
+    totalMetaVendas += commProjTotalUnid;
+
     const comm = currentMonthData.commercial[p];
     if (comm) {
-      totalLeads += comm.leads || 0;
-      totalVendas += comm.vendas || 0;
-      totalVGV += comm.vgv || 0;
-      totalVisitasOn += comm.visitasOn || 0;
       totalVisitasOff += comm.visitasOff || 0;
     }
   });
 
   const totalPrevisto = budgetPub + budgetStand + budgetInst + budgetProdutos;
-  const percentMkt = totalVgvProduto > 0 ? (budgetPub / totalVgvProduto) * 100 : 0;
-  const percentManutStand = totalVgvProduto > 0 ? (budgetStand / totalVgvProduto) * 100 : 0;
-  const percentProduto = totalVgvProduto > 0 ? (budgetProdutos / totalVgvProduto) * 100 : 0;
   const taxaConversao = totalLeads > 0 ? (totalVendas / totalLeads) * 100 : 0;
   const leadsPorVenda = totalVendas > 0 ? totalLeads / totalVendas : 0;
 
@@ -143,9 +224,7 @@ export default function Dashboard() {
     }
   }
 
-  const isAllMonths = selectedMonthId.endsWith('-ALL');
   const currentMonthEvents = isAllMonths ? [] : timelineEvents.filter(e => e.date.startsWith(selectedMonthId)).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-  const [year, month] = selectedMonthId.split('-').map(Number);
   const daysInMonth = isAllMonths ? 0 : new Date(year, month, 0).getDate();
   const days = Array.from({ length: daysInMonth }, (_, i) => i + 1);
 
@@ -153,7 +232,7 @@ export default function Dashboard() {
     <div className="space-y-8 animate-in fade-in duration-500">
       <header className="flex flex-col md:flex-row md:items-end justify-between gap-4">
         <div>
-          <h2 className="text-3xl font-bold text-slate-900 tracking-tight">Dashboard</h2>
+          <h2 className="text-3xl font-bold text-slate-900 tracking-tight">Marketing</h2>
           <p className="text-slate-500 mt-1">
             Visão geral de {MONTHS[currentMonthData.month - 1]} de {currentMonthData.year}
           </p>
@@ -174,30 +253,49 @@ export default function Dashboard() {
       </header>
 
       {/* Top KPIs */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
         <div className="bg-[#61072E] rounded-2xl p-4 shadow-sm text-white flex flex-col justify-center items-center text-center">
           <p className="text-xs font-medium text-white/70 uppercase tracking-wider mb-1">VGV do Produto</p>
-          <p className="text-xl font-bold">{formatCurrency(totalVgvProduto)}</p>
+          <p className="text-[0.8rem] font-bold">{formatCurrency(totalVgvProduto)}</p>
         </div>
         <div className="bg-[#61072E] rounded-2xl p-4 shadow-sm text-white flex flex-col justify-center items-center text-center">
-          <p className="text-xs font-medium text-white/70 uppercase tracking-wider mb-1">% MKT</p>
-          <p className="text-xl font-bold">{percentMkt.toFixed(2)}%</p>
+          <p className="text-xs font-medium text-white/70 uppercase tracking-wider mb-1">VGV em Estoque</p>
+          <p className="text-[0.8rem] font-bold">
+            {formatCurrency(siengeData?.vgvEstoque || 0)}
+          </p>
         </div>
-        <div className="bg-[#61072E] rounded-2xl p-4 shadow-sm text-white flex flex-col justify-center items-center text-center">
-          <p className="text-xs font-medium text-white/70 uppercase tracking-wider mb-1">% Manut. Stand</p>
-          <p className="text-xl font-bold">{percentManutStand.toFixed(2)}%</p>
-        </div>
-        <div className="bg-[#61072E] rounded-2xl p-4 shadow-sm text-white flex flex-col justify-center items-center text-center">
-          <p className="text-xs font-medium text-white/70 uppercase tracking-wider mb-1">% Produto</p>
-          <p className="text-xl font-bold">{percentProduto.toFixed(2)}%</p>
-        </div>
-        <div className="bg-[#61072E] rounded-2xl p-4 shadow-sm text-white flex flex-col justify-center items-center text-center">
-          <p className="text-xs font-medium text-white/70 uppercase tracking-wider mb-1">Estoque de Unid.</p>
-          <p className="text-xl font-bold">{totalEstoque}</p>
+        <div className="bg-[#61072E] rounded-2xl p-4 shadow-sm text-white flex flex-col justify-center items-center text-center relative">
+          <p className="text-xs font-medium text-white/70 uppercase tracking-wider mb-1">VGV Realizado</p>
+          <p className="text-[0.8rem] font-bold">
+            {formatCurrency(totalVGV)}
+          </p>
         </div>
         <div className="bg-[#61072E] rounded-2xl p-4 shadow-sm text-white flex flex-col justify-center items-center text-center">
           <p className="text-xs font-medium text-white/70 uppercase tracking-wider mb-1">Meta de Vendas</p>
-          <p className="text-xl font-bold">{totalMetaVendas}</p>
+          <p className="text-[0.8rem] font-bold">{totalMetaVendas} unid.</p>
+        </div>
+        <div className="bg-[#61072E] rounded-2xl p-4 shadow-sm text-white flex flex-col justify-center items-center text-center relative">
+          <p className="text-xs font-medium text-white/70 uppercase tracking-wider mb-1">Vendas Realizadas</p>
+          <p className="text-[0.8rem] font-bold">
+            {`${totalVendas} unid.`}
+          </p>
+        </div>
+
+        <div className="bg-slate-800 rounded-2xl p-4 shadow-sm text-white flex flex-col justify-center items-center text-center">
+          <p className="text-xs font-medium text-white/70 uppercase tracking-wider mb-1">Investimento MKT</p>
+          <p className="text-[0.8rem] font-bold">{formatCurrency(totalPublicidade + totalInstitucional)}</p>
+        </div>
+        <div className="bg-slate-800 rounded-2xl p-4 shadow-sm text-white flex flex-col justify-center items-center text-center">
+          <p className="text-xs font-medium text-white/70 uppercase tracking-wider mb-1">Investimento Stand</p>
+          <p className="text-[0.8rem] font-bold">{formatCurrency(totalStand)}</p>
+        </div>
+        <div className="bg-slate-800 rounded-2xl p-4 shadow-sm text-white flex flex-col justify-center items-center text-center">
+          <p className="text-xs font-medium text-white/70 uppercase tracking-wider mb-1">Investimento Produto</p>
+          <p className="text-[0.8rem] font-bold">{formatCurrency(totalProdutos)}</p>
+        </div>
+        <div className="bg-slate-800 rounded-2xl p-4 shadow-sm text-white flex flex-col justify-center items-center text-center">
+          <p className="text-xs font-medium text-white/70 uppercase tracking-wider mb-1">Estoque de Unid.</p>
+          <p className="text-[0.8rem] font-bold">{totalEstoque} unid.</p>
         </div>
       </div>
 
@@ -229,24 +327,49 @@ export default function Dashboard() {
           <h3 className="text-lg font-bold text-slate-800 mb-6">Planejado x Realizado</h3>
           <div className="space-y-6">
             {projectsToInclude.map(p => {
-              const pBudget = (currentMonthData.budgets[p]?.publicidade || 0) + (currentMonthData.budgets[p]?.stand || 0) + (currentMonthData.budgets[p]?.institucional || 0) + (currentMonthData.budgets[p]?.produtos || 0);
-              const pInvestido = filteredTransactions.filter(t => t.project === p).reduce((sum, t) => sum + t.amount, 0);
-              const pPercent = pBudget > 0 ? (pInvestido / pBudget) * 100 : 0;
+              const pBudgetPub = currentMonthData.budgets[p]?.publicidade || 0;
+              const pInvestidoPub = filteredTransactions.filter(t => t.project === p && PUBLICIDADE_CATEGORIES.includes(t.category)).reduce((sum, t) => sum + t.amount, 0);
+              const pPercentPub = pBudgetPub > 0 ? (pInvestidoPub / pBudgetPub) * 100 : 0;
+
+              const pBudgetStand = currentMonthData.budgets[p]?.stand || 0;
+              const pInvestidoStand = filteredTransactions.filter(t => t.project === p && MANUTENCAO_STAND_CATEGORIES.includes(t.category)).reduce((sum, t) => sum + t.amount, 0);
+              const pPercentStand = pBudgetStand > 0 ? (pInvestidoStand / pBudgetStand) * 100 : 0;
               
-              if (pBudget === 0 && pInvestido === 0) return null;
+              if (pBudgetPub === 0 && pInvestidoPub === 0 && pBudgetStand === 0 && pInvestidoStand === 0) return null;
 
               return (
-                <div key={p}>
-                  <div className="flex justify-between text-sm mb-1">
-                    <span className="font-medium text-slate-700">{p}</span>
-                    <span className="text-slate-500">{formatCurrency(pInvestido)} / {formatCurrency(pBudget)}</span>
-                  </div>
-                  <div className="w-full bg-slate-100 rounded-full h-4 overflow-hidden flex">
-                    <div 
-                      className={`h-full ${pPercent > 100 ? 'bg-rose-500' : pPercent > 80 ? 'bg-amber-500' : 'bg-emerald-500'}`} 
-                      style={{ width: `${Math.min(pPercent, 100)}%` }}
-                    ></div>
-                  </div>
+                <div key={p} className="space-y-3">
+                  <div className="font-bold text-slate-800 border-b border-slate-100 pb-1">{p}</div>
+                  
+                  {(pBudgetPub > 0 || pInvestidoPub > 0) && (
+                    <div>
+                      <div className="flex justify-between text-sm mb-1">
+                        <span className="font-medium text-slate-600">Publicidade</span>
+                        <span className="text-slate-500">{formatCurrency(pInvestidoPub)} / {formatCurrency(pBudgetPub)}</span>
+                      </div>
+                      <div className="w-full bg-slate-100 rounded-full h-3 overflow-hidden flex">
+                        <div 
+                          className={`h-full ${pPercentPub > 100 ? 'bg-rose-500' : pPercentPub > 80 ? 'bg-amber-500' : 'bg-emerald-500'}`} 
+                          style={{ width: `${Math.min(pPercentPub, 100)}%` }}
+                        ></div>
+                      </div>
+                    </div>
+                  )}
+
+                  {(pBudgetStand > 0 || pInvestidoStand > 0) && (
+                    <div>
+                      <div className="flex justify-between text-sm mb-1">
+                        <span className="font-medium text-slate-600">Manut. Stand</span>
+                        <span className="text-slate-500">{formatCurrency(pInvestidoStand)} / {formatCurrency(pBudgetStand)}</span>
+                      </div>
+                      <div className="w-full bg-slate-100 rounded-full h-3 overflow-hidden flex">
+                        <div 
+                          className={`h-full ${pPercentStand > 100 ? 'bg-rose-500' : pPercentStand > 80 ? 'bg-amber-500' : 'bg-emerald-500'}`} 
+                          style={{ width: `${Math.min(pPercentStand, 100)}%` }}
+                        ></div>
+                      </div>
+                    </div>
+                  )}
                 </div>
               );
             })}
@@ -256,32 +379,35 @@ export default function Dashboard() {
 
       {/* Bottom Section */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* 6 KPIs */}
-        <div className="lg:col-span-3 grid grid-cols-2 gap-4">
-          <div className="bg-white rounded-2xl p-4 shadow-sm border border-slate-200 flex flex-col items-center justify-center text-center">
-            <Users className="text-slate-400 mb-2" size={24} />
-            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Leads</p>
-            <p className="text-xl font-bold text-slate-900">{totalLeads.toLocaleString('pt-BR')}</p>
+        {/* 4 KPIs */}
+        <div className="lg:col-span-3 flex flex-col gap-4">
+          <div className="bg-white rounded-2xl p-4 shadow-sm border border-slate-200 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-blue-50 text-blue-600 rounded-lg"><Users size={20} /></div>
+              <p className="text-sm font-semibold text-slate-500 uppercase tracking-wider">Leads</p>
+            </div>
+            <p className="text-[0.8rem] font-bold text-slate-900">{totalLeads.toLocaleString('pt-BR')}</p>
           </div>
-          <div className="bg-white rounded-2xl p-4 shadow-sm border border-slate-200 flex flex-col items-center justify-center text-center">
-            <ShoppingCart className="text-slate-400 mb-2" size={24} />
-            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Vendas</p>
-            <p className="text-xl font-bold text-slate-900">{totalVendas}</p>
+          <div className="bg-white rounded-2xl p-4 shadow-sm border border-slate-200 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-emerald-50 text-emerald-600 rounded-lg"><Activity size={20} /></div>
+              <p className="text-sm font-semibold text-slate-500 uppercase tracking-wider">Visitas On</p>
+            </div>
+            <p className="text-[0.8rem] font-bold text-slate-900">{totalVisitasOn}</p>
           </div>
-          <div className="bg-white rounded-2xl p-4 shadow-sm border border-slate-200 flex flex-col items-center justify-center text-center">
-            <Activity className="text-slate-400 mb-2" size={24} />
-            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Visitas On</p>
-            <p className="text-xl font-bold text-slate-900">{totalVisitasOn}</p>
+          <div className="bg-white rounded-2xl p-4 shadow-sm border border-slate-200 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-amber-50 text-amber-600 rounded-lg"><Activity size={20} /></div>
+              <p className="text-sm font-semibold text-slate-500 uppercase tracking-wider">Visitas Off</p>
+            </div>
+            <p className="text-[0.8rem] font-bold text-slate-900">{totalVisitasOff}</p>
           </div>
-          <div className="bg-white rounded-2xl p-4 shadow-sm border border-slate-200 flex flex-col items-center justify-center text-center">
-            <Activity className="text-slate-400 mb-2" size={24} />
-            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Visitas Off</p>
-            <p className="text-xl font-bold text-slate-900">{totalVisitasOff}</p>
-          </div>
-          <div className="bg-white rounded-2xl p-4 shadow-sm border border-slate-200 flex flex-col items-center justify-center text-center col-span-2">
-            <DollarSign className="text-slate-400 mb-2" size={24} />
-            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">VGV Realizado</p>
-            <p className="text-xl font-bold text-slate-900">{formatCurrency(totalVGV)}</p>
+          <div className="bg-white rounded-2xl p-4 shadow-sm border border-slate-200 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-purple-50 text-purple-600 rounded-lg"><Percent size={20} /></div>
+              <p className="text-sm font-semibold text-slate-500 uppercase tracking-wider">Conversão</p>
+            </div>
+            <p className="text-[0.8rem] font-bold text-slate-900">{taxaConversao.toFixed(1)}%</p>
           </div>
         </div>
 

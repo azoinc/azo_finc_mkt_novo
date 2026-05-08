@@ -1,16 +1,21 @@
-import React, { useRef, useState } from 'react';
-import { PlusCircle, Trash2, Upload, Database, Loader2 } from 'lucide-react';
+import React, { useRef, useState, useMemo } from 'react';
+import { PlusCircle, Trash2, Upload, Database, Loader2, ChevronLeft, ChevronRight } from 'lucide-react';
 import * as xlsx from 'xlsx';
 import { useExpense } from '../context/ExpenseContext';
 import { MONTHS, formatCurrency, matchProject, getCityForProject } from '../utils';
 import { Project, SaleRecord, PipelineRecord, City, PROJECTS_BY_CITY, CommercialRecord } from '../types';
 import { supabase } from '../lib/supabase';
 
+import { AnnualOverview } from '../components/AnnualOverview';
+
 export default function CommercialEntry() {
   const { data, currentMonthData, selectedProject, updateCommercialData, addCommercialMetrics, setIsCommercialModalOpen, filteredCommercialRecords, deleteCommercialRecord, addCommercialRecords, addMonth, syncSupabaseData, selectedMonthId } = useExpense();
   
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const ITEMS_PER_PAGE = 5;
+
 
   const parseSheetName = (sheetName: string): { month: number, year: number } | null => {
     // Try to find a 4-digit year
@@ -293,6 +298,31 @@ export default function CommercialEntry() {
     ? (currentMonthData.commercial[selectedProject] || { leads: 0, vendas: 0, vgv: 0, visitasOn: 0, visitasOff: 0 })
     : null;
 
+  const sortedRecords = useMemo(() => {
+    return [...filteredCommercialRecords].sort((a, b) => {
+      const parseDate = (d: string) => {
+        if (!d) return 0;
+        if (d.includes('/')) {
+          const [day, month, year] = d.split('/');
+          return new Date(`${year}-${month}-${day}T12:00:00Z`).getTime();
+        }
+        return new Date(`${d}T12:00:00Z`).getTime();
+      };
+      return parseDate(b.date) - parseDate(a.date);
+    });
+  }, [filteredCommercialRecords]);
+
+  const totalPages = Math.ceil(sortedRecords.length / ITEMS_PER_PAGE);
+  const paginatedRecords = useMemo(() => {
+    const start = (currentPage - 1) * ITEMS_PER_PAGE;
+    return sortedRecords.slice(start, start + ITEMS_PER_PAGE);
+  }, [sortedRecords, currentPage]);
+
+  // Reset to first page if filters change
+  React.useEffect(() => {
+    setCurrentPage(1);
+  }, [filteredCommercialRecords.length]);
+
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
       <header className="flex flex-col md:flex-row md:items-end justify-between gap-4">
@@ -334,6 +364,8 @@ export default function CommercialEntry() {
           </button>
         </div>
       </header>
+
+      <AnnualOverview />
 
       {selectedProject === 'ALL' ? (
         <div className="bg-amber-50 border border-amber-200 text-amber-800 p-4 rounded-xl shadow-sm">
@@ -411,7 +443,7 @@ export default function CommercialEntry() {
         <div className="px-6 py-4 border-b border-slate-200 bg-slate-50 flex justify-between items-center">
           <h3 className="text-lg font-bold text-slate-800">Lançamentos Comerciais</h3>
         </div>
-        <div className="overflow-x-auto">
+        <div className="overflow-auto h-[400px]">
           <table className="w-full text-left text-sm">
             <thead className="bg-white">
               <tr className="text-slate-500 uppercase tracking-wider text-xs border-b border-slate-200">
@@ -423,14 +455,14 @@ export default function CommercialEntry() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {filteredCommercialRecords.length === 0 ? (
+              {paginatedRecords.length === 0 ? (
                 <tr>
                   <td colSpan={5} className="px-6 py-8 text-center text-slate-500">
                     Nenhum lançamento comercial encontrado para este período.
                   </td>
                 </tr>
               ) : (
-                filteredCommercialRecords.map(record => (
+                paginatedRecords.map(record => (
                   <tr key={record.id} className="hover:bg-slate-50 transition-colors">
                     <td className="px-6 py-4 whitespace-nowrap text-slate-600">
                       {new Date(record.date).toLocaleDateString('pt-BR', { timeZone: 'UTC' })}
@@ -463,7 +495,7 @@ export default function CommercialEntry() {
                         </div>
                       )}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right">
+                    <td className="px-6 py-4 whitespace-nowrap text-right align-top">
                       <button
                         onClick={() => deleteCommercialRecord(record.id)}
                         className="text-rose-500 hover:text-rose-700 p-2 hover:bg-rose-50 rounded-lg transition-colors"
@@ -478,6 +510,55 @@ export default function CommercialEntry() {
             </tbody>
           </table>
         </div>
+        
+        {totalPages > 1 && (
+          <div className="px-6 py-4 border-t border-slate-200 bg-slate-50 flex items-center justify-between">
+            <span className="text-sm text-slate-500">
+              Página {currentPage} de {totalPages}
+            </span>
+            <div className="flex items-center space-x-1">
+              <button
+                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+                className="p-1.5 rounded-lg border border-slate-300 bg-white text-slate-600 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              >
+                <ChevronLeft size={18} />
+              </button>
+              
+              {(() => {
+                let start = Math.max(1, currentPage - 1);
+                let end = Math.min(totalPages, start + 2);
+                if (end - start < 2) {
+                  start = Math.max(1, end - 2);
+                }
+                const pages = [];
+                for (let i = start; i <= end; i++) pages.push(i);
+                
+                return pages.map(pageNum => (
+                  <button
+                    key={pageNum}
+                    onClick={() => setCurrentPage(pageNum)}
+                    className={`w-8 h-8 flex items-center justify-center rounded-lg text-sm font-medium transition-colors ${
+                      currentPage === pageNum 
+                        ? 'bg-indigo-600 text-white border border-transparent' 
+                        : 'bg-white text-slate-600 border border-slate-300 hover:bg-slate-50'
+                    }`}
+                  >
+                    {pageNum}
+                  </button>
+                ));
+              })()}
+
+              <button
+                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                disabled={currentPage === totalPages}
+                className="p-1.5 rounded-lg border border-slate-300 bg-white text-slate-600 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              >
+                <ChevronRight size={18} />
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
