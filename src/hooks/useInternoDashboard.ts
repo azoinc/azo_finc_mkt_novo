@@ -6,6 +6,7 @@ import { PROJECTS_BY_CITY } from '../types';
 localforage.config({
   name: 'InternoDashboard',
   storeName: 'dashboard_cache',
+  description: 'Cache for the internal dashboard data'
 });
 
 export interface DashboardFilters {
