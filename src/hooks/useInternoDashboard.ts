@@ -1,34 +1,35 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
+import localforage from 'localforage';
 import { supabase } from '../lib/supabase';
+import { PROJECTS_BY_CITY } from '../types';
+
+localforage.config({
+  name: 'InternoDashboard',
+  storeName: 'dashboard_cache',
+  description: 'Cache for the internal dashboard data'
+});
 
 export interface DashboardFilters {
   period: string;
   project: string;
   broker: string;
+  origin?: string;
   startDate?: string;
   endDate?: string;
-  competence?: string;
+  competences?: string[];
+  city?: string;
+  interactiveFilters?: {
+    origin?: string;
+    cancelReason?: string;
+    month?: string;
+    status?: string;
+  };
 }
 
 export function useInternoDashboard(filters: DashboardFilters) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-
-  // Data states
-  const [statusData, setStatusData] = useState<{ name: string; value: number }[]>([]);
-  const [funnelData, setFunnelData] = useState<{ name: string; value: number }[]>([]);
-  const [stackedStatusData, setStackedStatusData] = useState<any[]>([]);
-  const [availableMonths, setAvailableMonths] = useState<string[]>([]);
-  const [brokerTimeData, setBrokerTimeData] = useState<{ name: string; time: number }[]>([]);
-  const [brokerActionsData, setBrokerActionsData] = useState<{ name: string; actions: number }[]>([]);
-  const [originData, setOriginData] = useState<{ name: string; value: number }[]>([]);
-  const [cancelReasons, setCancelReasons] = useState<{ reason: string; count: number }[]>([]);
-  const [brokerLeads, setBrokerLeads] = useState<{ name: string; value: number }[]>([]);
-  const [lineData, setLineData] = useState<any[]>([]);
-  const [lineChartKeys, setLineChartKeys] = useState<string[]>([]);
-  
-  const [totalLeads, setTotalLeads] = useState(0);
-  const [hottestStatusData, setHottestStatusData] = useState({ visita: 0, agendamento: 0 });
+  const [rawData, setRawData] = useState<any>(null);
 
   useEffect(() => {
     async function fetchData() {
@@ -41,201 +42,453 @@ export function useInternoDashboard(filters: DashboardFilters) {
       setLoading(true);
       setError(null);
 
+      const cacheKey = `dashboardCacheV3_${JSON.stringify({
+        period: filters.period,
+        project: filters.project,
+        broker: filters.broker,
+        competences: filters.competences,
+        startDate: filters.startDate,
+        endDate: filters.endDate,
+        city: filters.city
+      })}`;
+
       try {
-        // 1. Determine Date Range
+        const cachedRawData = await localforage.getItem(cacheKey);
+        if (cachedRawData) {
+          setRawData(cachedRawData);
+          setLoading(false);
+        } else {
+          setRawData(null);
+        }
+      } catch (e) {
+        console.error('Cache read error', e);
+        setRawData(null);
+      }
+
+      try {
         const now = new Date();
         let startDate = new Date();
         let endDate = new Date();
 
         if (filters.period === 'Todo o período') {
-          startDate = new Date(2025, 11, 1); // December 1, 2025
+          startDate = new Date(2026, 0, 1);
         } else if (filters.period === 'Últimos 30 dias') {
           startDate.setDate(now.getDate() - 30);
-        } else if (filters.period === 'Este mês') {
+        } else if (filters.period === 'Este mês' || filters.period === 'Mês Atual') {
           startDate = new Date(now.getFullYear(), now.getMonth(), 1);
-        } else if (filters.period === 'Mês passado') {
+        } else if (filters.period === 'Mês passado' || filters.period === 'Mês Passado') {
           startDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
           endDate = new Date(now.getFullYear(), now.getMonth(), 0);
         } else if (filters.period === 'Personalizado' && filters.startDate && filters.endDate) {
-          startDate = new Date(`${filters.startDate}T00:00:00`);
-          endDate = new Date(`${filters.endDate}T23:59:59.999`);
+          startDate = new Date(filters.startDate + 'T00:00:00');
+          endDate = new Date(filters.endDate + 'T23:59:59.999');
         } else {
-          // Default fallback
-          startDate = new Date(2025, 11, 1);
+          startDate = new Date(now.getFullYear(), now.getMonth(), 1);
         }
 
-        const formatYYYYMMDD = (date: Date) => {
-          const y = date.getFullYear();
-          const m = String(date.getMonth() + 1).padStart(2, '0');
-          const d = String(date.getDate()).padStart(2, '0');
-          return `${y}-${m}-${d}`;
-        };
+        const globalMinDate = new Date(2026, 0, 1);
+        if (startDate < globalMinDate) startDate = globalMinDate;
 
-        const startDateStr = formatYYYYMMDD(startDate);
-        const endDateStr = formatYYYYMMDD(endDate);
+        const formatDate = (date: Date) => date.toISOString().split('T')[0];
+        const startDateStr = formatDate(startDate);
+        const endDateStr = formatDate(endDate);
 
-        // 1. Fetch leads data from the main leads table - SEM LIMITE
+        // Buscar leads da tabela leads
         let leadsQuery = supabase
           .from('leads')
-          .select('status_atual, id_cv, data_criacao_cv, origem, motivo_cancelamento, corretor, empreendimento')
+          .select('status_atual, nome, id_cv, data_criacao_cv, origem, motivo_cancelamento, corretor, empreendimento')
           .gte('data_criacao_cv', startDateStr)
           .lte('data_criacao_cv', endDateStr);
 
         if (filters.project !== 'Todos') {
-          leadsQuery = leadsQuery.eq('empreendimento', filters.project);
+          leadsQuery = (leadsQuery as any).ilike('empreendimento', `%${filters.project}%`);
+        } else if (filters.city && filters.city !== 'ALL') {
+          const cityProjects = PROJECTS_BY_CITY[filters.city as keyof typeof PROJECTS_BY_CITY];
+          if (cityProjects && cityProjects.length > 0) {
+            leadsQuery = leadsQuery.in('empreendimento', cityProjects);
+          }
         }
+
         if (filters.broker !== 'Todos') {
-          leadsQuery = leadsQuery.eq('corretor', filters.broker);
+          leadsQuery = (leadsQuery as any).ilike('corretor', `%${filters.broker}%`);
         }
 
-        const { data: leadsData, error: leadsError } = await leadsQuery;
+        const { data: leadsDataRaw, error: leadsError } = await leadsQuery;
         if (leadsError) throw leadsError;
-        
-        const processedLeadsData = leadsData?.map(item => ({
-          status_atual: item.status_atual,
-          id: item.id_cv,
-          lead_data_cad: item.data_criacao_cv,
-          origem: item.origem,
-          motivo_cancelamento: item.motivo_cancelamento,
-          corretor: item.corretor,
-          empreendimento: item.empreendimento
-        })) || [];
 
-        if (processedLeadsData) {
-          setTotalLeads(processedLeadsData.length);
-          
-          const statusCounts: Record<string, number> = {};
-          const originCounts: Record<string, number> = {};
-          const cancelCounts: Record<string, number> = {};
-          const brokerCounts: Record<string, number> = {};
-          const lineDataMap: Record<string, any> = {};
+        // Processar leads - filtrar Ação de Marketing
+        const leadsData = (leadsDataRaw || [])
+          .filter((item: any) => {
+            const status = (item.status_atual || '').toLowerCase();
+            const motivo = (item.motivo_cancelamento || '').toLowerCase();
+            const origem = (item.origem || '').toLowerCase();
+            return !status.includes('ação') && !status.includes('acao') &&
+                   !motivo.includes('ação') && !motivo.includes('acao') &&
+                   !origem.includes('ação') && !origem.includes('acao');
+          })
+          .map((item: any) => ({
+            status_atual: item.status_atual,
+            id: String(item.id_cv),
+            nome: item.nome,
+            lead_data_cad: item.data_criacao_cv,
+            origem: item.origem,
+            motivo_cancelamento: item.motivo_cancelamento,
+            corretor: item.corretor,
+            empreendimento: item.empreendimento
+          }));
 
-          processedLeadsData.forEach(lead => {
-            // Status
-            const status = lead.status_atual || 'Sem Status';
-            statusCounts[status] = (statusCounts[status] || 0) + 1;
+        // Buscar snapshots da view print_view_lead_snapshot_mensal
+        const leadIds = leadsData.map((l: any) => l.id);
+        let snapshotData: any[] = [];
 
-            // Origem Tratada
-            let origin = lead.origem || 'Desconhecida';
-            const originLower = origin.toLowerCase();
-            if (originLower.includes('facebook') || originLower.includes('fb') || originLower.includes('instagram') || originLower.includes('ig') || originLower.includes('meta')) {
-              origin = 'Facebook';
-            } else if (originLower.includes('google') || originLower.includes('adwords')) {
-              origin = 'Google';
-            } else if (originLower.includes('site') || originLower.includes('organico') || originLower.includes('orgânico') || originLower.includes('seo')) {
-              origin = 'Site';
-            } else {
-              origin = 'Outros';
-            }
-            originCounts[origin] = (originCounts[origin] || 0) + 1;
-
-            // Motivo Cancelamento
-            if (lead.motivo_cancelamento && lead.motivo_cancelamento.trim() !== '') {
-              const motivo = lead.motivo_cancelamento.trim();
-              cancelCounts[motivo] = (cancelCounts[motivo] || 0) + 1;
-            }
-
-            // Corretor
-            const corretor = lead.corretor || 'Sem Corretor';
-            brokerCounts[corretor] = (brokerCounts[corretor] || 0) + 1;
-
-            // Evolução (Line Chart)
-            if (lead.lead_data_cad) {
-              try {
-                // Create date object handling timezone issues
-                const dateObj = new Date(lead.lead_data_cad.includes('T') ? lead.lead_data_cad : `${lead.lead_data_cad}T12:00:00Z`);
-                const sortKey = dateObj.toISOString().split('T')[0]; // YYYY-MM-DD
-                const displayDate = dateObj.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit' });
-                const emp = lead.empreendimento || 'Outros';
-                
-                if (!lineDataMap[sortKey]) {
-                  lineDataMap[sortKey] = { date: displayDate, sortKey };
-                }
-                lineDataMap[sortKey][emp] = (lineDataMap[sortKey][emp] || 0) + 1;
-              } catch (error) {
-                console.warn('Error processing date:', lead.lead_data_cad, error);
-              }
-            }
-          });
-
-          setStatusData(Object.entries(statusCounts).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value));
-          setOriginData(Object.entries(originCounts).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value));
-          setCancelReasons(Object.entries(cancelCounts).map(([reason, count]) => ({ reason, count })).sort((a, b) => b.count - a.count));
-          setBrokerLeads(Object.entries(brokerCounts).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value));
-          
-          // Sort line data by date
-          const sortedLineData = Object.values(lineDataMap).sort((a, b) => {
-            return (a as any).sortKey.localeCompare((b as any).sortKey);
-          });
-          setLineData(sortedLineData);
-
-          // Extract unique empreendimentos for line chart keys, sorted by total volume
-          const empTotals: Record<string, number> = {};
-          processedLeadsData.forEach(lead => {
-            if (lead.lead_data_cad) {
-              const emp = lead.empreendimento || 'Outros';
-              empTotals[emp] = (empTotals[emp] || 0) + 1;
-            }
-          });
-          const sortedEmpKeys = Object.entries(empTotals)
-            .sort((a, b) => b[1] - a[1])
-            .map(entry => entry[0]);
-          setLineChartKeys(sortedEmpKeys); // Sem limite - todos os empreendimentos
-
-          // --- Simple Funnel Data (Mock for now) ---
-          const mockFunnelData = [
-            { name: 'Total de Leads', value: processedLeadsData.length },
-            { name: 'Em Atendimento', value: statusCounts['Em Atendimento'] || 0 },
-            { name: 'Agendamento', value: statusCounts['Agendamento'] || 0 },
-            { name: 'Visita Realizada', value: statusCounts['Visita Realizada'] || 0 },
-            { name: 'Venda Realizada', value: statusCounts['Venda Realizada'] || 0 }
-          ].filter(item => item.value > 0);
-          setFunnelData(mockFunnelData);
-
-          // --- Hottest Status Data ---
-          setHottestStatusData({ 
-            visita: statusCounts['Visita Realizada'] || 0, 
-            agendamento: statusCounts['Agendamento'] || 0 
-          });
-
-          // --- Empty data for charts not yet implemented ---
-          setStackedStatusData([]);
-          setAvailableMonths([]);
-          setBrokerTimeData([]);
-          setBrokerActionsData([]);
+        if (leadIds.length > 0) {
+          const chunkSize = 1000;
+          const snapshotPromises = [];
+          for (let i = 0; i < leadIds.length; i += chunkSize) {
+            const chunk = leadIds.slice(i, i + chunkSize);
+            snapshotPromises.push(
+              supabase
+                .from('print_view_lead_snapshot_mensal')
+                .select('status_final_mes, competencia_data, lead_id')
+                .in('lead_id', chunk)
+            );
+          }
+          const snapshotResponses = await Promise.all(snapshotPromises);
+          snapshotData = snapshotResponses.flatMap((r: any) => r.data || []);
         }
+
+        // Gerar funil sintético baseado nos status dos leads
+        const syntheticFunnelData: any[] = [];
+        leadsData.forEach((lead: any) => {
+          const leadId = lead.id;
+          const st = (lead.status_atual || '').toLowerCase();
+          
+          syntheticFunnelData.push({ lead_id: leadId, etapa_visual: '1. Total de Leads' });
+          
+          if (!st.includes('aguardando')) {
+            syntheticFunnelData.push({ lead_id: leadId, etapa_visual: '2. Em Atendimento' });
+          }
+          if (st.includes('agendam') || st.includes('agendado') || st.includes('visita') || st.includes('proposta') || st.includes('negocia') || st.includes('venda') || st.includes('contrato')) {
+            syntheticFunnelData.push({ lead_id: leadId, etapa_visual: '3. Agendamento' });
+          }
+          if (st.includes('visita') || st.includes('proposta') || st.includes('negocia') || st.includes('venda') || st.includes('contrato')) {
+            syntheticFunnelData.push({ lead_id: leadId, etapa_visual: '4. Visita' });
+          }
+          if (st.includes('proposta') || st.includes('negocia') || st.includes('venda') || st.includes('contrato')) {
+            syntheticFunnelData.push({ lead_id: leadId, etapa_visual: '5. Proposta/Negociação' });
+          }
+          if (st.includes('venda') || st.includes('contrato')) {
+            syntheticFunnelData.push({ lead_id: leadId, etapa_visual: '6. Vendas' });
+          }
+        });
+
+        const newRawData = {
+          leadsData,
+          funnelRes: { data: syntheticFunnelData, error: null },
+          snapshotRes: [{ data: snapshotData }],
+          tmaData: [],
+          actionsData: []
+        };
+
+        setRawData(newRawData);
+        await localforage.setItem(cacheKey, newRawData);
 
       } catch (err: any) {
         console.error('Error fetching dashboard data:', err);
         setError(err.message || 'Erro ao carregar dados do dashboard');
-        
-        // Detailed error logging
-        if (err.details) console.error('Error details:', err.details);
-        if (err.hint) console.error('Error hint:', err.hint);
-        if (err.code) console.error('Error code:', err.code);
+        setRawData(null);
       } finally {
         setLoading(false);
       }
     }
 
     fetchData();
-  }, [filters]); // Re-fetch when filters change
+  }, [filters.period, filters.project, filters.broker, JSON.stringify(filters.competences), filters.startDate, filters.endDate, filters.city]);
+
+  const computed = useMemo(() => {
+    if (!rawData) {
+      return {
+        statusData: [], funnelData: [], stackedStatusData: [], availableMonths: [],
+        brokerTimeData: [], brokerActionsData: [], originData: [], cancelReasons: [],
+        brokerLeads: [], lineData: [], lineChartKeys: [], totalLeads: 0,
+        hottestStatusData: { visita: 0, agendamento: 0, proposta: 0, venda: 0 },
+        hottestLeadsList: []
+      };
+    }
+    
+    let leadsData = rawData.leadsData as any[];
+
+    // Exclude 'Ação de Marketing' entirely from the dashboard metrics
+    leadsData = leadsData.filter(l => {
+      const status = (l.status_atual || '').toLowerCase();
+      return !status.includes('ação') && !status.includes('acao');
+    });
+    
+    // Treat origins beforehand so we can filter by the treated name!
+    leadsData = leadsData.map(lead => {
+        let origin = lead.origem || 'Desconhecida';
+        const originLower = origin.toLowerCase();
+        if (originLower.includes('facebook') || originLower.includes('fb') || originLower.includes('instagram') || originLower.includes('ig') || originLower.includes('meta')) {
+          origin = 'Facebook';
+        } else if (originLower.includes('google') || originLower.includes('adwords')) {
+          origin = 'Google';
+        } else if (originLower.includes('site') || originLower.includes('organico') || originLower.includes('orgânico') || originLower.includes('seo')) {
+          origin = 'Site';
+        } else {
+          origin = 'Outros';
+        }
+        return { ...lead, origin_treated: origin, motivo_cancelamento_treated: lead.motivo_cancelamento ? lead.motivo_cancelamento.trim() : null };
+    });
+
+    const activeFilter = filters.interactiveFilters || {};
+    
+    if (activeFilter.origin) {
+       leadsData = leadsData.filter(l => l.origin_treated === activeFilter.origin);
+    }
+    if (activeFilter.cancelReason) {
+       leadsData = leadsData.filter(l => l.motivo_cancelamento_treated === activeFilter.cancelReason);
+    }
+
+    if (filters.origin && filters.origin !== 'Todas') {
+       leadsData = leadsData.filter(l => l.origin_treated === filters.origin);
+    }
+    
+    // Create an set of active lead IDs
+    const activeLeadIds = new Set(leadsData.map(l => String(l.id)));
+
+    const statusCounts: Record<string, number> = {};
+    const originCounts: Record<string, number> = {};
+    const cancelCounts: Record<string, number> = {};
+    const brokerCounts: Record<string, number> = {};
+    const lineDataMap: Record<string, any> = {};
+
+    leadsData.forEach(lead => {
+      const status = lead.status_atual || 'Sem Status';
+      statusCounts[status] = (statusCounts[status] || 0) + 1;
+      
+      originCounts[lead.origin_treated] = (originCounts[lead.origin_treated] || 0) + 1;
+
+      if (lead.motivo_cancelamento_treated) {
+        cancelCounts[lead.motivo_cancelamento_treated] = (cancelCounts[lead.motivo_cancelamento_treated] || 0) + 1;
+      }
+
+      const corretor = lead.corretor || 'Sem Corretor';
+      brokerCounts[corretor] = (brokerCounts[corretor] || 0) + 1;
+
+      if (lead.lead_data_cad) {
+        let monthStr = lead.lead_data_cad;
+        let sortKey = monthStr;
+        if (typeof monthStr === 'string' && monthStr.length >= 7) {
+          const parts = monthStr.substring(0, 10).split('-');
+          if (parts.length >= 2) {
+             const year = parts[0];
+             const monthNum = parseInt(parts[1], 10);
+             const monthNames = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+             if (monthNum >= 1 && monthNum <= 12) {
+                 monthStr = `${monthNames[monthNum - 1]} ${year}`;
+                 sortKey = `${year}-${String(monthNum).padStart(2, '0')}`;
+             }
+          }
+        }
+        
+        const displayDate = monthStr;
+        const emp = lead.empreendimento || 'Outros';
+        
+        if (!lineDataMap[sortKey]) {
+          lineDataMap[sortKey] = { date: displayDate, sortKey };
+        }
+        lineDataMap[sortKey][emp] = (lineDataMap[sortKey][emp] || 0) + 1;
+      }
+    });
+
+    const statusData = Object.entries(statusCounts).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value);
+    const originData = Object.entries(originCounts).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value);
+    const cancelReasons = Object.entries(cancelCounts).map(([reason, count]) => ({ reason, count })).sort((a, b) => b.count - a.count);
+    const brokerLeads = Object.entries(brokerCounts).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value);
+    
+    const sortedLineData = Object.values(lineDataMap).sort((a, b) => a.sortKey.localeCompare(b.sortKey));
+    
+    const empTotals: Record<string, number> = {};
+    leadsData.forEach(lead => {
+      if (lead.lead_data_cad) {
+        const emp = lead.empreendimento || 'Outros';
+        empTotals[emp] = (empTotals[emp] || 0) + 1;
+      }
+    });
+    const lineChartKeys = Object.entries(empTotals).sort((a, b) => b[1] - a[1]).map(e => e[0]);
+
+    // Funnel Processing
+    const funnelCounts: Record<string, Set<string>> = {};
+    const leadHottestStatus = new Map<string, number>();
+
+    if (!rawData.funnelRes.error && rawData.funnelRes.data) {
+      rawData.funnelRes.data.forEach((row: any) => {
+        const leadId = String(row.lead_id);
+        if (!activeLeadIds.has(leadId)) return; // FILTER BY ACTIVE LEADS
+        
+        const etapa = row.etapa_visual;
+        if (etapa && leadId && leadId !== 'null' && leadId !== 'undefined') {
+          if (etapa.toLowerCase().includes('ação') || etapa.toLowerCase().includes('acao')) return;
+
+          if (!funnelCounts[etapa]) funnelCounts[etapa] = new Set();
+          funnelCounts[etapa].add(leadId);
+
+          const fase = etapa.toLowerCase();
+          let score = 0;
+          if (fase.includes('venda')) score = 4;
+          else if (fase.includes('proposta') || fase.includes('negocia')) score = 3;
+          else if (fase.includes('visita')) score = 2;
+          else if (fase.includes('agendamento') || fase.includes('agendado')) score = 1;
+          
+          const currentScore = leadHottestStatus.get(leadId) || 0;
+          if (score > currentScore) {
+            leadHottestStatus.set(leadId, score);
+          }
+        }
+      });
+    }
+
+    const funnelData = Object.entries(funnelCounts)
+      .sort((a, b) => a[0].localeCompare(b[0]))
+      .map(([name, dataSet]) => ({ name, value: dataSet.size }));
+      
+    const totalStage = funnelData.find((item: any) => item.name.includes('Total de Leads'));
+    const totalLeads = leadsData.length;
+
+    const leadOriginMap = new Map<string, string>();
+    let descartadosCount = 0;
+    leadsData.forEach(l => {
+      leadOriginMap.set(String(l.id), (l.origem || '').toLowerCase());
+      if (l.status_atual?.toLowerCase().includes('descartad')) {
+         descartadosCount++;
+      }
+    });
+
+    const isAllowedVendaOrigin = (o: string) => {
+      return o.includes('facebook') || o.includes('fb') || o.includes('meta') ||
+             o.includes('insta') || o.includes('ig') || 
+             o.includes('site') || o.includes('orgânico') || o.includes('organico') || o.includes('seo') ||
+             o.includes('whatsapp') || o.includes('whats') || o.includes('wpp');
+    };
+
+    let rCount = 0;
+    let pCount = 0;
+    let vCount = 0;
+    let aCount = 0;
+    
+    const hottestLeadsList: any[] = [];
+
+    leadsData.forEach(lead => {
+      const score = leadHottestStatus.get(String(lead.id)) || 0;
+      if (score >= 4) {
+        if (isAllowedVendaOrigin(lead.origin_treated)) {
+           rCount++;
+        }
+      }
+      if (score >= 3) pCount++;
+      if (score >= 2) vCount++;
+      if (score >= 1) aCount++;
+      
+      if (score >= 1) {
+        let maxStep = 'Agendamento';
+        if (score === 2) maxStep = 'Visita';
+        if (score === 3) maxStep = 'Proposta';
+        if (score === 4) maxStep = 'Venda';
+        
+        hottestLeadsList.push({
+          id: lead.id,
+          nome: lead.nome || 'Sem Nome',
+          empreendimento: lead.empreendimento,
+          corretor: lead.corretor,
+          maxStep,
+          data_entrada: lead.lead_data_cad,
+          status_atual: lead.status_atual
+        });
+      }
+    });
+
+    const hottestStatusData = { visita: vCount, agendamento: aCount, proposta: pCount, venda: rCount, descartado: descartadosCount };
+
+
+    // Snapshots Processing
+    const snapshotDataAll = rawData.snapshotRes.flatMap((res: any) => res.data || []);
+    const stackedDataMap = new Map<string, Map<string, Set<string>>>();
+    const monthsSet = new Set<string>();
+    const monthRawMap = new Map<string, string>();
+
+    const hasSpecificCompetences = filters.competences && filters.competences.length > 0 && !filters.competences.includes('Atual');
+    const selectedMonthStrings = hasSpecificCompetences ? (filters.competences || []).map(c => c.substring(0, 7)) : [];
+
+    snapshotDataAll.forEach((row: any) => {
+      const stringifiedLeadId = String(row.lead_id);
+      if (!activeLeadIds.has(stringifiedLeadId)) return; // FILTER BY ACTIVE LEADS
+
+      const status = row.status_final_mes || 'Sem Status';
+      if (status.toLowerCase().includes('ação') || status.toLowerCase().includes('acao')) return; // exclude
+      
+      if (activeFilter.status && status !== activeFilter.status) return; // INTERACTIVE STATUS FILTER
+
+      const compData = row.competencia_data;
+      if (!compData) return;
+      
+      if (hasSpecificCompetences) {
+        const rawMonthStr = compData.substring(0, 7);
+        if (!selectedMonthStrings.includes(rawMonthStr)) return;
+      }
+      
+      let monthStr = compData;
+      if (typeof compData === 'string' && compData.length >= 7) {
+        const parts = compData.substring(0, 10).split('-');
+        if (parts.length >= 2) {
+           const year = parts[0];
+           const monthNum = parseInt(parts[1], 10);
+           const monthNames = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+           if (monthNum >= 1 && monthNum <= 12) {
+               monthStr = `${monthNames[monthNum - 1]} ${year}`;
+           }
+        }
+      }
+      
+      if (activeFilter.month && monthStr !== activeFilter.month) return; // INTERACTIVE MONTH FILTER
+
+      monthsSet.add(monthStr);
+      monthRawMap.set(monthStr, compData);
+      
+      if (!stackedDataMap.has(status)) stackedDataMap.set(status, new Map());
+      const statusMonths = stackedDataMap.get(status)!;
+      if (!statusMonths.has(monthStr)) statusMonths.set(monthStr, new Set());
+      if (row.lead_id) statusMonths.get(monthStr)!.add(stringifiedLeadId);
+    });
+
+    const availableMonths = Array.from(monthsSet).sort((a, b) => {
+      const rawA = monthRawMap.get(a) || '';
+      const rawB = monthRawMap.get(b) || '';
+      return rawA.localeCompare(rawB);
+    });
+    
+    const stackedStatusData = Array.from(stackedDataMap.entries()).map(([status, monthsMap]) => {
+      const obj: any = { status };
+      let total = 0;
+      availableMonths.forEach(month => {
+        const count = monthsMap.get(month)?.size || 0;
+        obj[month] = count;
+        total += count;
+      });
+      obj.total = total;
+      return obj;
+    }).filter((d: any) => d.total > 0).sort((a: any, b: any) => b.total - a.total);
+
+    return {
+      statusData, funnelData, stackedStatusData, availableMonths,
+      brokerTimeData: [], brokerActionsData: [], originData, cancelReasons,
+      brokerLeads, lineData: sortedLineData, lineChartKeys, totalLeads,
+      hottestStatusData, hottestLeadsList
+    };
+  }, [rawData, filters.interactiveFilters]);
 
   return {
     loading,
     error,
-    statusData,
-    funnelData,
-    stackedStatusData,
-    availableMonths,
-    brokerTimeData,
-    brokerActionsData,
-    originData,
-    cancelReasons,
-    brokerLeads,
-    lineData,
-    lineChartKeys,
-    totalLeads,
-    hottestStatusData
+    ...computed
   };
 }
