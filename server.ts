@@ -2,18 +2,24 @@ import express from "express";
 import { createServer as createViteServer } from "vite";
 import path from "path";
 import pg from "pg";
+import dotenv from "dotenv";
+
+// Load environment variables
+dotenv.config();
 
 const { Pool } = pg;
 
+// Database configuration from environment variables
 const pool = new Pool({
-  host: "aws-1-sa-east-1.pooler.supabase.com",
-  database: "postgres",
-  user: "postgres.gmvmdryoisurvhtdrppb",
-  password: "Azo@2025#Inc",
-  port: 6543,
-  ssl: {
+  host: process.env.DB_HOST || process.env.DATABASE_URL ? undefined : "localhost",
+  database: process.env.DB_NAME || "postgres",
+  user: process.env.DB_USER || "postgres",
+  password: process.env.DB_PASSWORD || "",
+  port: parseInt(process.env.DB_PORT || "5432"),
+  connectionString: process.env.DATABASE_URL || undefined,
+  ssl: process.env.DB_SSL_REJECT_UNAUTHORIZED === "false" || process.env.DATABASE_URL ? {
     rejectUnauthorized: false
-  }
+  } : undefined
 });
 
 async function startServer() {
