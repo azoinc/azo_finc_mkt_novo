@@ -13,7 +13,7 @@ interface ImportMetaEnv {
   readonly VITE_SUPABASE_URL: string
   readonly VITE_SUPABASE_ANON_KEY: string
   
-  // Sienge (optional)
+
   readonly VITE_SIENGE_SUBDOMAIN?: string
   readonly VITE_SIENGE_API_USER?: string
   readonly VITE_SIENGE_API_PASSWORD?: string
