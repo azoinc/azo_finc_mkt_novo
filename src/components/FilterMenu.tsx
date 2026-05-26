@@ -41,21 +41,6 @@ const competenceOptions = [
   { value: '2024-12-01', label: 'Dezembro/2024' }
 ];
 
-const monthOptions = [
-  { value: '01', label: 'Janeiro' },
-  { value: '02', label: 'Fevereiro' },
-  { value: '03', label: 'Março' },
-  { value: '04', label: 'Abril' },
-  { value: '05', label: 'Maio' },
-  { value: '06', label: 'Junho' },
-  { value: '07', label: 'Julho' },
-  { value: '08', label: 'Agosto' },
-  { value: '09', label: 'Setembro' },
-  { value: '10', label: 'Outubro' },
-  { value: '11', label: 'Novembro' },
-  { value: '12', label: 'Dezembro' }
-];
-
 export const FilterMenu: React.FC<FilterMenuProps> = ({ filters, onFiltersChange }) => {
   const [openSection, setOpenSection] = useState<string | null>(null);
 
